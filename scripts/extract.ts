@@ -1,5 +1,6 @@
 import { FontExtractor } from "./extractor";
 import fs from "fs";
+import path from "path";
 import { parseArgs } from "util";
 
 const { values, positionals } = parseArgs({
@@ -14,6 +15,8 @@ const { values, positionals } = parseArgs({
   },
 });
 
+const __dirname = new URL(".", import.meta.url).pathname;
+
 // read extract definition
 const definition = positionals[2]
   ? JSON.parse(fs.readFileSync(positionals[2], "utf-8"))
@@ -26,7 +29,8 @@ const advanceOffset = definition.advanceOffset ?? 0;
 const fontName = definition.fontName ?? "unifont";
 const fontSize = definition.fontSize ?? 24;
 const fontFile =
-  definition.fontFile ?? "./data/fonts/unifont/unifont-17.0.03.otf";
+  definition.fontFile ??
+  path.resolve(__dirname, "../data/fonts/unifont/unifont-17.0.03.otf");
 const renderWidth = definition.renderWidth ?? 16;
 const renderHeight = definition.renderHeight ?? 16;
 const wildcardHeight = definition.wildcardHeight ?? 16;
@@ -138,7 +142,7 @@ if (!fs.existsSync(`./fonts/${fontName}/glyphs/9647.txt`)) {
   );
   fs.writeFileSync(
     `./fonts/${fontName}/shapes/WILDCARD.txt`,
-    `${fontSize - wildcardHeight} 1\n` +
+    `${fontSize - wildcardHeight + 1} 1\n` +
       generateWildcard(wildcardWidth, wildcardHeight),
   );
   written++;

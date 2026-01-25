@@ -1,5 +1,6 @@
 // Script to dedup all characters in the CJK directory
 import fs from "node:fs";
+import path from "path";
 import { FontExtractor } from "./extractor";
 
 const hardCap = 10922;
@@ -34,13 +35,21 @@ const ignores = new Set([
   64257, 64258,
 ]);
 
-const listStandards = fs.readdirSync("./data/pages/standards");
-const listExtra = fs.readdirSync("./data/pages/extra");
-const listOthers = fs.readdirSync("./data/pages/others");
+const __dirname = new URL(".", import.meta.url).pathname;
+
+const listStandards = fs.readdirSync(
+  path.resolve(__dirname, "../data/pages/standards"),
+);
+const listExtra = fs.readdirSync(
+  path.resolve(__dirname, "../data/pages/extra"),
+);
+const listOthers = fs.readdirSync(
+  path.resolve(__dirname, "../data/pages/others"),
+);
 
 const frequencyMap: Record<string, number> = Object.fromEntries(
   fs
-    .readFileSync("./data/FREQUENCY", "utf8")
+    .readFileSync(path.resolve(__dirname, "../data/FREQUENCY"), "utf8")
     .split("\n")
     .filter((s) => s)
     .map((s, i) => [s, i]),
@@ -49,7 +58,9 @@ const frequencyMap: Record<string, number> = Object.fromEntries(
 const result = new Set<string>();
 const segmentor = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-const unifont = new FontExtractor("data/fonts/unifont/unifont-17.0.03.otf");
+const unifont = new FontExtractor(
+  path.resolve(__dirname, "../data/fonts/unifont/unifont-17.0.03.otf"),
+);
 
 const isSupported = (char: string) => {
   const codepoint = char.codePointAt(0);
@@ -76,7 +87,10 @@ const isSupported = (char: string) => {
 };
 
 for (const file of listStandards) {
-  const content = fs.readFileSync(`./data/pages/standards/${file}`, "utf8");
+  const content = fs.readFileSync(
+    path.resolve(__dirname, `../data/pages/standards/${file}`),
+    "utf8",
+  );
   const characters = Array.from(segmentor.segment(content)).map(
     (s) => s.segment,
   );
@@ -87,7 +101,10 @@ for (const file of listStandards) {
 }
 
 for (const file of listExtra) {
-  const content = fs.readFileSync(`./data/pages/extra/${file}`, "utf8");
+  const content = fs.readFileSync(
+    path.resolve(__dirname, `../data/pages/extra/${file}`),
+    "utf8",
+  );
   const characters = Array.from(segmentor.segment(content)).map(
     (s) => s.segment,
   );
@@ -121,7 +138,10 @@ for (const file of listExtra) {
 }
 
 for (const file of listOthers) {
-  const content = fs.readFileSync(`./data/pages/others/${file}`, "utf8");
+  const content = fs.readFileSync(
+    path.resolve(__dirname, `../data/pages/others/${file}`),
+    "utf8",
+  );
   const characters = Array.from(segmentor.segment(content)).map(
     (s) => s.segment,
   );
