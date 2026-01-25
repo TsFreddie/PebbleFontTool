@@ -6,7 +6,7 @@ import { browser } from '$app/environment';
 const projects = new Map<string, Project>();
 const references = new Map<string, Project>();
 
-const BASE_PATH = '../fonts';
+const BASE_PATH = '../../fonts';
 
 export const loadProject = async (font: string) => {
 	if (projects.has(font)) return projects.get(font);
