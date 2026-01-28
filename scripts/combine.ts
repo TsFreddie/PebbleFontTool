@@ -4,7 +4,7 @@ import path from "path";
 import { FontExtractor } from "./extractor";
 
 const hardCap = 10922;
-const cjkCap = 10500;
+const cjkCap = 10600;
 
 // Supported in pebble GOTHIC
 const ignores = new Set([
@@ -58,6 +58,11 @@ const frequencyMap: Record<string, number> = Object.fromEntries(
 const result = new Set<string>();
 const segmentor = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
+// Track coverage for each file
+const coverageMap: Record<string, Set<string>> = {};
+// Track total characters in each file (before filtering)
+const totalMap: Record<string, number> = {};
+
 const unifont = new FontExtractor(
   path.resolve(__dirname, "../data/fonts/unifont/unifont-17.0.03.otf"),
 );
@@ -94,9 +99,14 @@ for (const file of listStandards) {
   const characters = Array.from(segmentor.segment(content)).map(
     (s) => s.segment,
   );
+  
+  coverageMap[file] = new Set<string>();
+  totalMap[file] = characters.length;
+  
   for (const char of characters) {
     if (!isSupported(char)) continue;
     result.add(char);
+    coverageMap[file].add(char);
   }
 }
 
@@ -110,9 +120,15 @@ for (const file of listExtra) {
   );
 
   const addedExtra = [];
+  coverageMap[file] = new Set<string>();
+  totalMap[file] = characters.length;
 
   for (const char of characters) {
     if (!isSupported(char)) continue;
+    
+    // Count towards coverage even if already in result set
+    coverageMap[file].add(char);
+    
     if (result.has(char)) continue;
 
     addedExtra.push(char);
@@ -129,6 +145,7 @@ for (const file of listExtra) {
       const char = addedExtra.pop()!;
       removed.push(char);
       result.delete(char);
+      coverageMap[file].delete(char);
     }
 
     console.log(
@@ -146,8 +163,15 @@ for (const file of listOthers) {
     (s) => s.segment,
   );
 
+  coverageMap[file] = new Set<string>();
+  totalMap[file] = characters.length;
+
   for (const char of characters) {
     if (!isSupported(char)) continue;
+    
+    // Count towards coverage even if already in result set
+    coverageMap[file].add(char);
+    
     if (result.has(char)) continue;
     if (result.size >= hardCap) {
       console.log(`Ignoring ${char} (${char.charCodeAt(0)!}) due to hard cap`);
@@ -158,6 +182,33 @@ for (const file of listOthers) {
 
 console.log("Deduped all characters in the CJK directory");
 console.log(`Total characters: ${result.size}`);
+
+// Print coverage for each txt document
+console.log("\n=== Coverage Report ===");
+console.log("Standards:");
+for (const file of listStandards) {
+  const coverage = coverageMap[file];
+  const total = totalMap[file];
+  const percentage = ((coverage.size / total) * 100).toFixed(2);
+  console.log(`  ${file}: ${coverage.size}/${total} (${percentage}%)`);
+}
+
+console.log("\nExtra:");
+for (const file of listExtra) {
+  const coverage = coverageMap[file];
+  const total = totalMap[file];
+  const percentage = ((coverage.size / total) * 100).toFixed(2);
+  console.log(`  ${file}: ${coverage.size}/${total} (${percentage}%)`);
+}
+
+console.log("\nOthers:");
+for (const file of listOthers) {
+  const coverage = coverageMap[file];
+  const total = totalMap[file];
+  const percentage = ((coverage.size / total) * 100).toFixed(2);
+  console.log(`  ${file}: ${coverage.size}/${total} (${percentage}%)`);
+}
+console.log("========================\n");
 
 fs.mkdirSync("./build", { recursive: true });
 fs.writeFileSync(

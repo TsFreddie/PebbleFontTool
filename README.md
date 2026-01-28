@@ -21,23 +21,33 @@ For CJK codepoints specifically, this font targets specific standard documents. 
 - Read [pages](./data/pages) directory for all the de-duplicated codepoints
 - Remove all codepoints exceeding 16 bits
 - Read [extra](./data/pages/extra) directory for additional codepoints
-- Reference the [FREQUENCY](./data/FREQUENCY) file and cut the extra characters until we reach a total of 10500 characters
+- Reference the [FREQUENCY](./data/FREQUENCY) file and cut the extra characters until we reach a total of 10600 characters
 - Read [others](./data/pages/others) directory and add them to the final set
 
 The current hard cap PebbleOS can hold in a single PBF file is 10922 16-bit codepoints.
-We set our limit to 10500 to leave extra spaces for missing characters in other languages or special characters.
+We set our limit to 10600 to leave extra spaces for missing characters in other languages or special characters.
 
 ### Document Coverage
 
-| Script                  | Document               | Coverage   |
-| ----------------------- | ---------------------- | ---------- |
-| Simplified Chinese      | 通用规范汉字表（一级） | 3500/3500  |
-| Traditional Chinese     | 常用國字標準字體表     | 4808/4808  |
-| Japanese Standard Kanji | 日本常用漢字表         | 2137/2137  |
-| Korean Hanja            | 한문 교육용 기초한자   | 1800/1801  |
-| Bopomofo                | 注音符號               | 43/43      |
-| Hiragana + Katakana     | 仮名                   | 187/187    |
-| Hangul                  | 한글                   | 2351/11172 |
+| Script                       | Document                   | Coverage            |
+| ---------------------------- | -------------------------- | ------------------- |
+| Simplified Chinese           | 通用规范汉字表（一级）     | 3500/3500 (100.00%) |
+| Traditional Chinese          | 常用國字標準字體表         | 4808/4808 (100.00%) |
+| Japanese Standard Kanji      | 日本常用漢字表             | 2135/2136 (99.95%)  |
+| Hong Kong Variants (Common)  | 常用香港外字表（AB1234ㄅ） | 456/532 (85.71%)    |
+| Korean Hanja                 | 한문 교육용 기초한자       | 1799/1800 (99.94%)  |
+| Bopomofo                     | 注音符號                   | 43/43 (100.00%)     |
+| Hiragana + Katakana          | 仮名                       | 187/187 (100.00%)   |
+| Hangul                       | 한글                       | 2350/2350 (100.00%) |
+| Periodic Table (Simplified)  | 元素周期表                 | 109/118 (92.37%)    |
+| Periodic Table (Traditional) | 元素週期表                 | 114/118 (96.61%)    |
+
+Supplementary Coverage
+
+| Script                         | Document               | Coverage           |
+| ------------------------------ | ---------------------- | ------------------ |
+| Simplified Chinese (Secondary) | 通用规范汉字表（二级） | 2094/3000 (69.80%) |
+| Hong Kong Variants (Remaining) | 常用香港外字表（其餘） | 125/1066 (11.73%)  |
 
 ## Licenses
 
@@ -46,5 +56,7 @@ This set of scripts and tooling is licensed under MIT.
 ## Acknowledgements
 
 [Unifont](https://unifoundry.com/unifont/index.html) ([OFL 1.1](https://unifoundry.com/OFL-1.1.txt) Licensed) is used as a availability reference and as the base reference for the design tool.
+
+[常用香港外字表 (suppchara)](https://github.com/ichitenfont/suppchara) ([CC BY 4.0](https://github.com/ichitenfont/suppchara/blob/master/License.md) Licensed) is used to add common variants used in Hong Kong.
 
 A [FREQUENCY](./data/FREQUENCY) file derived from "[Chinese character list from 2.5 billion words corpus ordered by frequency](https://faculty.blcu.edu.cn/xinghb/zh_CN/article/167473/content/1437.htm)" is used as a reference to reduce the number of glyphs supported.
