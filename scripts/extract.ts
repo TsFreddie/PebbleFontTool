@@ -23,7 +23,7 @@ const definition = positionals[2]
   : {};
 
 const pageFile = definition.pageFile ?? "./build/pages.txt";
-const topOffset = definition.topOffset ?? 9;
+const topOffset = definition.topOffset ?? 7;
 const leftOffset = definition.leftOffset ?? 0;
 const advanceOffset = definition.advanceOffset ?? 0;
 const fontName = definition.fontName ?? "unifont";
