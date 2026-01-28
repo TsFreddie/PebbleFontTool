@@ -51,17 +51,14 @@ const frequencyMap: Record<string, number> = Object.fromEntries(
   fs
     .readFileSync(path.resolve(__dirname, "../data/FREQUENCY"), "utf8")
     .split("\n")
-    .filter((s) => s)
-    .map((s, i) => [s, i]),
+    .filter((s) => s.trim())
+    .map((s) => s.split(",")),
 );
 
 const result = new Set<string>();
 const segmentor = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-// Track coverage for each file
-const coverageMap: Record<string, Set<string>> = {};
-// Track total characters in each file (before filtering)
-const totalMap: Record<string, number> = {};
+const fileSets: Record<string, Set<string>> = {};
 
 const unifont = new FontExtractor(
   path.resolve(__dirname, "../data/fonts/unifont/unifont-17.0.03.otf"),
@@ -99,16 +96,19 @@ for (const file of listStandards) {
   const characters = Array.from(segmentor.segment(content)).map(
     (s) => s.segment,
   );
-  
-  coverageMap[file] = new Set<string>();
-  totalMap[file] = characters.length;
-  
+
+  fileSets[file] = new Set(characters);
+
   for (const char of characters) {
-    if (!isSupported(char)) continue;
+    if (result.has(char) || !isSupported(char)) {
+      continue;
+    }
+
     result.add(char);
-    coverageMap[file].add(char);
   }
 }
+
+const extras = new Set<string>();
 
 for (const file of listExtra) {
   const content = fs.readFileSync(
@@ -119,39 +119,29 @@ for (const file of listExtra) {
     (s) => s.segment,
   );
 
-  const addedExtra = [];
-  coverageMap[file] = new Set<string>();
-  totalMap[file] = characters.length;
+  fileSets[file] = new Set(characters);
 
   for (const char of characters) {
-    if (!isSupported(char)) continue;
-    
-    // Count towards coverage even if already in result set
-    coverageMap[file].add(char);
-    
-    if (result.has(char)) continue;
-
-    addedExtra.push(char);
-    result.add(char);
-  }
-
-  if (result.size > cjkCap) {
-    console.warn(`WARNING: exceeds glyph cap of ${cjkCap}! Removing extra...`);
-
-    addedExtra.sort((a, b) => frequencyMap[a] - frequencyMap[b]);
-    const removed = [];
-
-    while (addedExtra.length > 0 && result.size > cjkCap) {
-      const char = addedExtra.pop()!;
-      removed.push(char);
-      result.delete(char);
-      coverageMap[file].delete(char);
+    if (result.has(char) || !isSupported(char)) {
+      continue;
     }
 
-    console.log(
-      `Removed ${removed.length} characters: ${removed.reverse().join("")}`,
-    );
+    extras.add(char);
   }
+}
+
+const extraCharacters = Array.from(extras).sort(
+  (a, b) => (frequencyMap[b] ?? 0) - (frequencyMap[a] ?? 0),
+);
+console.log(extraCharacters);
+const addingCount = Math.max(0, cjkCap - result.size);
+const addingCharacters = extraCharacters.splice(0, addingCount);
+addingCharacters.forEach((c) => result.add(c));
+
+if (extraCharacters.length > 0) {
+  console.log(
+    `Removed ${extraCharacters.length} characters: ${extraCharacters.join("")}`,
+  );
 }
 
 for (const file of listOthers) {
@@ -163,16 +153,13 @@ for (const file of listOthers) {
     (s) => s.segment,
   );
 
-  coverageMap[file] = new Set<string>();
-  totalMap[file] = characters.length;
+  fileSets[file] = new Set(characters);
 
   for (const char of characters) {
-    if (!isSupported(char)) continue;
-    
-    // Count towards coverage even if already in result set
-    coverageMap[file].add(char);
-    
-    if (result.has(char)) continue;
+    if (result.has(char) || !isSupported(char)) {
+      continue;
+    }
+
     if (result.size >= hardCap) {
       console.log(`Ignoring ${char} (${char.charCodeAt(0)!}) due to hard cap`);
     }
@@ -183,37 +170,39 @@ for (const file of listOthers) {
 console.log("Deduped all characters in the CJK directory");
 console.log(`Total characters: ${result.size}`);
 
+const resultList = Array.from(result).sort(
+  (a, b) => a.codePointAt(0)! - b.codePointAt(0)!,
+);
+
 // Print coverage for each txt document
 console.log("\n=== Coverage Report ===");
 console.log("Standards:");
 for (const file of listStandards) {
-  const coverage = coverageMap[file];
-  const total = totalMap[file];
-  const percentage = ((coverage.size / total) * 100).toFixed(2);
-  console.log(`  ${file}: ${coverage.size}/${total} (${percentage}%)`);
+  const fileSet = fileSets[file];
+  const coverage = resultList.filter((c) => fileSet.has(c)).length;
+  const total = fileSet.size;
+  const percentage = ((coverage / total) * 100).toFixed(2);
+  console.log(`  ${file}: ${coverage}/${total} (${percentage}%)`);
 }
 
 console.log("\nExtra:");
 for (const file of listExtra) {
-  const coverage = coverageMap[file];
-  const total = totalMap[file];
-  const percentage = ((coverage.size / total) * 100).toFixed(2);
-  console.log(`  ${file}: ${coverage.size}/${total} (${percentage}%)`);
+  const fileSet = fileSets[file];
+  const coverage = resultList.filter((c) => fileSet.has(c)).length;
+  const total = fileSet.size;
+  const percentage = ((coverage / total) * 100).toFixed(2);
+  console.log(`  ${file}: ${coverage}/${total} (${percentage}%)`);
 }
 
 console.log("\nOthers:");
 for (const file of listOthers) {
-  const coverage = coverageMap[file];
-  const total = totalMap[file];
-  const percentage = ((coverage.size / total) * 100).toFixed(2);
-  console.log(`  ${file}: ${coverage.size}/${total} (${percentage}%)`);
+  const fileSet = fileSets[file];
+  const coverage = resultList.filter((c) => fileSet.has(c)).length;
+  const total = fileSet.size;
+  const percentage = ((coverage / total) * 100).toFixed(2);
+  console.log(`  ${file}: ${coverage}/${total} (${percentage}%)`);
 }
 console.log("========================\n");
 
 fs.mkdirSync("./build", { recursive: true });
-fs.writeFileSync(
-  "./build/pages.txt",
-  Array.from(result)
-    .sort((a, b) => a.codePointAt(0)! - b.codePointAt(0)!)
-    .join(""),
-);
+fs.writeFileSync("./build/pages.txt", resultList.join(""));

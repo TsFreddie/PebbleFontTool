@@ -46,8 +46,8 @@ Supplementary Coverage
 
 | Script                         | Document               | Coverage           |
 | ------------------------------ | ---------------------- | ------------------ |
-| Simplified Chinese (Secondary) | 通用规范汉字表（二级） | 2094/3000 (69.80%) |
-| Hong Kong Variants (Remaining) | 常用香港外字表（其餘） | 125/1066 (11.73%)  |
+| Simplified Chinese (Secondary) | 通用规范汉字表（二级） | 2089/3000 (69.63%) |
+| Hong Kong Variants (Remaining) | 常用香港外字表（其餘） | 129/1066 (12.10%)  |
 
 ## Licenses
 
