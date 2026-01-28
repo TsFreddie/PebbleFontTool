@@ -9,7 +9,8 @@ function isAlphaNum(char: string) {
 		return false;
 	}
 
-	if (char == '#' || char == '(' || char == ')' || char == '.' || char == ';' || char == ",") return true;
+	if (char == '#' || char == '(' || char == ')' || char == '.' || char == ';' || char == ',')
+		return true;
 
 	const codePoint = char.codePointAt(0);
 
