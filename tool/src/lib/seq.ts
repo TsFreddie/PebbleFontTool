@@ -8,6 +8,9 @@ function isAlphaNum(char: string) {
 	if (char.length !== 1) {
 		return false;
 	}
+
+	if (char == '#' || char == '(' || char == ')' || char == '.' || char == ';' || char == ",") return true;
+
 	const codePoint = char.codePointAt(0);
 
 	if (!codePoint) {
@@ -50,6 +53,10 @@ const process = (part: string) => {
 
 	if (current) {
 		result.push(current);
+	}
+
+	if (result.length !== 2) {
+		return [];
 	}
 
 	return result;
