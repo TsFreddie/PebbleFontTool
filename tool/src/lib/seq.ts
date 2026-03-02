@@ -1,16 +1,14 @@
+import { browser } from '$app/environment';
 import seq from './seq.txt?raw';
 
 const addUnique = <T>(arr: T[], item: T) => {
 	if (!arr.includes(item)) arr.push(item);
 };
 
-function isAlphaNum(char: string) {
+function isMark(char: string) {
 	if (char.length !== 1) {
 		return false;
 	}
-
-	if (char == '#' || char == '(' || char == ')' || char == '.' || char == ';' || char == ',')
-		return true;
 
 	const codePoint = char.codePointAt(0);
 
@@ -18,22 +16,46 @@ function isAlphaNum(char: string) {
 		return false;
 	}
 
-	// Check for numeric (0-9)
-	if (codePoint >= 48 && codePoint <= 57) {
+	if (codePoint >= 0 && codePoint <= 127) {
 		return true;
 	}
-	// Check for upper alpha (A-Z)
-	if (codePoint >= 65 && codePoint <= 90) {
-		return true;
-	}
-	// Check for lower alpha (a-z)
-	if (codePoint >= 97 && codePoint <= 122) {
-		return true;
-	}
+
 	return false;
 }
 
 const segmentor = new Intl.Segmenter('zh', { granularity: 'grapheme' });
+
+const combiner = (parts: string[]) => {
+	const result: string[] = [];
+
+	let expectedCount = 0;
+	let current = '';
+
+	for (let i = 0; i < parts.length; i++) {
+		const char = parts[i];
+		if ('⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻'.includes(char)) {
+			expectedCount += 3;
+		} else if ('⿲⿳'.includes(char)) {
+			expectedCount += 4;
+		}
+
+		current += char;
+
+		if (expectedCount > 0) {
+			expectedCount--;
+		} else if (current) {
+			result.push(current);
+			current = '';
+		}
+	}
+
+	if (current) {
+		result.push(current);
+	}
+
+	return result;
+};
+
 const process = (part: string) => {
 	const chars = Array.from(segmentor.segment(part.slice(1))).map((seg) => seg.segment);
 
@@ -41,7 +63,7 @@ const process = (part: string) => {
 	let current = '';
 
 	for (const char of chars) {
-		if (isAlphaNum(char)) {
+		if (isMark(char)) {
 			current += char;
 		} else {
 			if (current) {
@@ -56,11 +78,10 @@ const process = (part: string) => {
 		result.push(current);
 	}
 
-	if (result.length !== 2) {
-		return [];
-	}
+	const combined = combiner(result);
+	if (combined.length !== 2) return ['', ''];
 
-	return result;
+	return combined;
 };
 
 // IDC sequence database
@@ -98,3 +119,7 @@ export const SEQS = Object.fromEntries(
 		})
 		.filter((s) => s[1].length > 0)
 );
+
+if (browser) {
+	window.SEQS = SEQS;
+}

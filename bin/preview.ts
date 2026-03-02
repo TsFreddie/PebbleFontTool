@@ -83,7 +83,7 @@ const customLineHeight =
 
 // Get text from command line or file
 let text =
-  "こんにちは Hello World 你好世界 지금 이 순간 Have a good day. ｺﾚｶﾗﾓ ﾀﾀｶｲ ﾋﾄﾂﾋﾄﾂ ﾉ ﾋｶﾘｦ 生活其實很簡單 「Bonjour!」 早安！從一句問候開始，連結起 하루 的美好。Look up. 仰望天空吧。空はどこまでも青い，希望也無窮無盡。晨光中，我在公園裡聽見孩子們喊「Let's play!」，그 소리 정말 즐겁다。轉角買了杯熱美式，咖啡師笑著說「Have a nice day!」。旁邊長椅上，一位老人正輕聲讀著俳句：「古池や蛙飛び込む水の音」。我忽然覺得，この瞬間、世界は完璧だ——這個瞬間，世界是完美的。風吹過，桜の花びら飄落在我的筆記本上，旁邊寫著一行小字：「微小的幸福，才是生活的本質。」";
+  "こんにちは Hello World 你好世界 지금 이 순간 Have a good day. 朝早喺街口邨市，買份報紙飲杯奶茶，就已經係全世界同我講緊早安。ｺﾚｶﾗﾓ ﾀﾀｶｲ ﾋﾄﾂﾋﾄﾂ ﾉ ﾋｶﾘｦ 生活其實很簡單 「Bonjour!」 早安！從一句問候開始，連結起 하루 的美好。空はどこまでも青い，希望也無窮無盡。晨光中，我在公園裡聽見孩子們喊「Let's play!」，그 소리 정말 즐겁다。轉角買了杯熱美式，咖啡師笑著說「Have a nice day!」。旁邊長椅上，一位老人正輕聲讀著俳句：「古池や蛙飛び込む水の音」。我忽然覺得，この瞬間、世界は完璧だ——這個瞬間，世界是完美的。風吹過，桜の花びら飄落在我的筆記本上，旁邊寫著一行小字：「微小的幸福，才是生活的本質。」";
 if (typeof values.text == "string") {
   text = values.text;
 } else if (typeof values["text-file"] == "string") {
@@ -96,7 +96,7 @@ if (typeof values.text == "string") {
   }
 }
 
-const padding = 4;
+const padding = 10;
 const scale = 1;
 
 // Load all PBF files
