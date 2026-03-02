@@ -49,6 +49,12 @@ Supplementary Coverage
 | Simplified Chinese (Secondary) | 通用规范汉字表（二级） | 2089/3000 (69.63%) |
 | Hong Kong Variants (Remaining) | 常用香港外字表（其餘） | 129/1066 (12.10%)  |
 
+Extra Coverage
+
+| Script                            | Document         | Coverage         |
+| --------------------------------- | ---------------- | ---------------- |
+| National Essential Medicines List | 国家基本药物目录 | 727/728 (99.86%) |
+
 ## Licenses
 
 This set of scripts and tooling is licensed under MIT.
