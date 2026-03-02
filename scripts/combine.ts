@@ -81,6 +81,7 @@ const isSupported = (char: string) => {
 
   if (ignores.has(codepoint)) {
     console.log(`${char} (${codepoint}) is ignored`);
+    return false;
   }
 
   if (!unifont.supportCodePoint(codepoint)) {
