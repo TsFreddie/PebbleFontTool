@@ -67,6 +67,17 @@ const unifont = new FontExtractor(
   path.resolve(__dirname, "../data/fonts/unifont/unifont-17.0.03.otf"),
 );
 
+const isIgnored = (char: string) => {
+  const codepoint = char.codePointAt(0);
+  if (codepoint === undefined) {
+    return false;
+  }
+
+  if (ignores.has(codepoint)) {
+    return false;
+  }
+};
+
 const isSupported = (char: string) => {
   const codepoint = char.codePointAt(0);
   if (codepoint === undefined) {
@@ -76,11 +87,6 @@ const isSupported = (char: string) => {
 
   if (codepoint > 65535) {
     console.log(`${char} (${codepoint}) exceeds 16 bits`);
-    return false;
-  }
-
-  if (ignores.has(codepoint)) {
-    console.log(`${char} (${codepoint}) is ignored`);
     return false;
   }
 
@@ -97,9 +103,9 @@ for (const file of listStandards) {
     path.resolve(__dirname, `../data/pages/standards/${file}`),
     "utf8",
   );
-  const characters = Array.from(segmentor.segment(content)).map(
-    (s) => s.segment,
-  );
+  const characters = Array.from(segmentor.segment(content))
+    .map((s) => s.segment)
+    .filter((s) => !isIgnored(s));
 
   fileSets[file] = new Set(characters);
 
@@ -119,9 +125,9 @@ for (const file of listExtra) {
     path.resolve(__dirname, `../data/pages/extra/${file}`),
     "utf8",
   );
-  const characters = Array.from(segmentor.segment(content)).map(
-    (s) => s.segment,
-  );
+  const characters = Array.from(segmentor.segment(content))
+    .map((s) => s.segment)
+    .filter((s) => !isIgnored(s));
 
   fileSets[file] = new Set(characters);
 
@@ -153,9 +159,9 @@ for (const file of listOthers) {
     path.resolve(__dirname, `../data/pages/others/${file}`),
     "utf8",
   );
-  const characters = Array.from(segmentor.segment(content)).map(
-    (s) => s.segment,
-  );
+  const characters = Array.from(segmentor.segment(content))
+    .map((s) => s.segment)
+    .filter((s) => !isIgnored(s));
 
   fileSets[file] = new Set(characters);
 
