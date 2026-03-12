@@ -96,7 +96,7 @@ if (typeof values.text == "string") {
   }
 }
 
-const padding = 4;
+const padding = 8;
 const scale = 1;
 
 // Load all PBF files
