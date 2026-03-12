@@ -160,3 +160,16 @@ export const loadProject = (filePath: string): Project => {
 
 	return project;
 };
+
+export const loadFreq = () => {
+	const freq = fs.readFileSync('../data/FREQUENCY', 'utf-8');
+	return Object.fromEntries(
+		freq
+			.split('\n')
+			.filter((l) => l)
+			.map((l) => {
+				const entry = l.split(',');
+				return [entry[0], Number(entry[1])];
+			})
+	);
+};

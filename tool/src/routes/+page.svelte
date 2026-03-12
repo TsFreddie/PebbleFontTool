@@ -64,6 +64,8 @@
 			} else {
 				findNextSeq();
 			}
+		} else if (key === 's') {
+			sortByFreq();
 		}
 	};
 
@@ -89,6 +91,15 @@
 				}
 			}
 		}
+	};
+
+	const sortByFreq = async () => {
+		const freqMap = await (await fetch('/api/freq')).json();
+		reference?.glyphs.sort(
+			(a, b) =>
+				(freqMap[String.fromCodePoint(b.codepoint)] || 0) -
+				(freqMap[String.fromCodePoint(a.codepoint)] || 0)
+		);
 	};
 
 	let filterStats = $state({
@@ -143,7 +154,7 @@
 	};
 
 	const toggleBold = () => {
-		bold = (bold + 1) % 4;
+		bold = (bold + 1) % 2;
 	};
 
 	onMount(async () => {
@@ -469,7 +480,7 @@
 							})
 						}}
 					></canvas>
-					<div class="absolute bottom-0 right-0 text-xs text-zinc-500">{renderGlyph.advance}</div>
+					<div class="absolute right-0 bottom-0 text-xs text-zinc-500">{renderGlyph.advance}</div>
 				</button>
 			{/each}
 		</div>
