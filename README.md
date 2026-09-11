@@ -24,19 +24,51 @@ For CJK codepoints specifically, this font targets specific standard documents. 
 - Reference the [FREQUENCY](./data/FREQUENCY) file and fill the remaining budget with the most frequent extra characters
 - Read [others](./data/pages/others) directory and add them to the final set unconditionally
 
-### Building pages.txt
-
-`build/pages.txt` (the codepoint set used for extraction) is generated from
-those documents. From the tumbled project root (with PebbleFontTool cloned into
-it):
+Run `scripts/combine.ts` to build the list:
 
 ```bash
 bun run ./PebbleFontTool/scripts/combine.ts
 ```
 
-It prints the coverage report and writes `build/pages.txt`.
+### Document Coverage
 
-`scripts/extract.ts` then rasterizes those codepoints into a glyph project:
+Overall **10,978 glyphs** are bundled into each font: the characters selected
+from the documents below plus the wildcard glyph.
+
+| Script                       | Document                   | Coverage            |
+| ---------------------------- | -------------------------- | ------------------- |
+| Simplified Chinese           | 通用规范汉字表（一级）     | 3500/3500 (100.00%) |
+| Traditional Chinese          | 常用國字標準字體表         | 4808/4808 (100.00%) |
+| Japanese Standard Kanji      | 日本常用漢字表             | 2135/2136 (99.95%)  |
+| Hong Kong Variants (Common)  | 常用香港外字表（AB1234ㄅ） | 456/532 (85.71%)    |
+| Korean Hanja                 | 한문 교육용 기초한자       | 1799/1800 (99.94%)  |
+| Bopomofo                     | 注音符號                   | 43/43 (100.00%)     |
+| Hiragana + Katakana          | 仮名                       | 187/187 (100.00%)   |
+| Hangul                       | 한글                       | 2350/2350 (100.00%) |
+| Periodic Table (Simplified)  | 元素周期表                 | 109/118 (92.37%)    |
+| Periodic Table (Traditional) | 元素週期表                 | 114/118 (96.61%)    |
+
+Supplementary Coverage
+
+| Script                         | Document               | Coverage           |
+| ------------------------------ | ---------------------- | ------------------ |
+| Simplified Chinese (Secondary) | 通用规范汉字表（二级） | 2213/3000 (73.77%) |
+| Hong Kong Variants (Remaining) | 常用香港外字表（其餘） | 160/1066 (15.01%)  |
+
+Extra Coverage
+
+| Script                            | Document         | Coverage         |
+| --------------------------------- | ---------------- | ---------------- |
+| National Essential Medicines List | 国家基本药物目录 | 708/709 (99.86%) |
+| Mainland province/city/county     | 中国大陆地名     | 1275/1275 (100%) |
+| Taiwan counties and townships     | 臺灣地名         | 315/315 (100%)   |
+| Hong Kong places                  | 香港地名         | 39/39 (100%)     |
+| Macau places                      | 澳門地名         | 27/27 (100%)     |
+| Japanese municipalities           | 日本地名         | 790/790 (100%)   |
+
+## Glyph Extraction
+
+`scripts/extract.ts` rasterizes those codepoints into a glyph project:
 
 ```bash
 # reference font used by the editor (defaults to Unifont at height 24)
@@ -76,42 +108,6 @@ restricts itself to the codepoints in `build/pages.txt` (pass `--all` to
 ignore the page set), and copies every shape referenced by the added glyphs
 so composed glyphs keep working. It warns when the two projects have
 different heights or when a glyph references a shape the source lacks.
-
-### Document Coverage
-
-Overall **10,978 glyphs** are bundled into each font: the characters selected
-from the documents below plus the wildcard glyph.
-
-| Script                       | Document                   | Coverage            |
-| ---------------------------- | -------------------------- | ------------------- |
-| Simplified Chinese           | 通用规范汉字表（一级）     | 3500/3500 (100.00%) |
-| Traditional Chinese          | 常用國字標準字體表         | 4808/4808 (100.00%) |
-| Japanese Standard Kanji      | 日本常用漢字表             | 2135/2136 (99.95%)  |
-| Hong Kong Variants (Common)  | 常用香港外字表（AB1234ㄅ） | 456/532 (85.71%)    |
-| Korean Hanja                 | 한문 교육용 기초한자       | 1799/1800 (99.94%)  |
-| Bopomofo                     | 注音符號                   | 43/43 (100.00%)     |
-| Hiragana + Katakana          | 仮名                       | 187/187 (100.00%)   |
-| Hangul                       | 한글                       | 2350/2350 (100.00%) |
-| Periodic Table (Simplified)  | 元素周期表                 | 109/118 (92.37%)    |
-| Periodic Table (Traditional) | 元素週期表                 | 114/118 (96.61%)    |
-
-Supplementary Coverage
-
-| Script                         | Document               | Coverage           |
-| ------------------------------ | ---------------------- | ------------------ |
-| Simplified Chinese (Secondary) | 通用规范汉字表（二级） | 2213/3000 (73.77%) |
-| Hong Kong Variants (Remaining) | 常用香港外字表（其餘） | 160/1066 (15.01%)  |
-
-Extra Coverage
-
-| Script                            | Document         | Coverage         |
-| --------------------------------- | ---------------- | ---------------- |
-| National Essential Medicines List | 国家基本药物目录 | 708/709 (99.86%) |
-| Mainland province/city/county     | 中国大陆地名     | 1275/1275 (100%) |
-| Taiwan counties and townships     | 臺灣地名         | 315/315 (100%)   |
-| Hong Kong places                  | 香港地名         | 39/39 (100%)     |
-| Macau places                      | 澳門地名         | 27/27 (100%)     |
-| Japanese municipalities           | 日本地名         | 790/790 (100%)   |
 
 ## Language Packs (.pbl)
 
