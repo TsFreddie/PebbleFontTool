@@ -206,6 +206,9 @@ bun run bin/fontsheet.ts --pebble /path/to/PebbleOS --all -o images/pebble_all.p
 
 # compare arbitrary PBFs
 bun run bin/fontsheet.ts build/GOTHIC_14.pbf build/TUMBLED_14.pbf -o images/compare.png
+
+# TUMBLED with the firmware's GOTHIC filling in the Latin
+bun run bin/fontsheet.ts build/TUMBLED_*.pbf --fallback build/gothic -o images/TUMBLED_specimen.png
 ```
 
 Fonts are discovered by merging `resources/common/base/resource_map.json` and
@@ -214,7 +217,9 @@ build does, so platform overrides are respected. Glyphs a font does not
 contain are drawn with that font's wildcard box. Useful flags: `--scale N`
 (default 1, pixel-exact; pass 2 for a magnified copy), `--max-width N`
 (default 1100; long text wraps), and
-`--coverage` to append a line with every glyph the sample text missed.
+`--coverage` to append a line with every glyph the sample text missed, and
+`--fallback <pbf|dir>` to fill glyphs a font is missing from another font (a
+directory is matched by pixel height).
 
 ## Licenses
 

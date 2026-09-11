@@ -32,6 +32,7 @@ const { positionals, values } = parseArgs({
     all: { type: "boolean" },
     text: { type: "string", short: "t" },
     coverage: { type: "boolean" },
+    fallback: { type: "string", short: "f" },
   },
 });
 
@@ -104,26 +105,32 @@ const sortFonts = (a: LoadedFont, b: LoadedFont) => {
   return 0;
 };
 
-const readGlyph = (font: Pbf, codepoint: number) => {
-  try {
-    return font.read(codepoint);
-  } catch {
+// Look a glyph up in the row's font chain; the last font of the chain draws
+// the wildcard for codepoints nothing covers.
+const readGlyph = (chain: Pbf[], codepoint: number) => {
+  for (const font of chain) {
     try {
-      return font.read(font.wildcardCodepoint);
+      return { glyph: font.read(codepoint), font };
     } catch {
-      return null;
+      // not in this font, try the next one
     }
+  }
+  const last = chain[chain.length - 1]!;
+  try {
+    return { glyph: last.read(last.wildcardCodepoint), font: last };
+  } catch {
+    return null;
   }
 };
 
 // Wrap text at whole-codepoint boundaries so it fits into `width` pixels.
-const wrapText = (font: Pbf, text: string, width: number) => {
+const wrapText = (chain: Pbf[], text: string, width: number) => {
   const lines: string[] = [];
   let current = "";
   let currentWidth = 0;
   let pendingSpace = "";
   for (const char of text) {
-    const glyph = readGlyph(font, char.codePointAt(0)!);
+    const glyph = readGlyph(chain, char.codePointAt(0)!)?.glyph;
     const advance = glyph?.advance ?? 0;
     if (char === " ") {
       pendingSpace += char;
@@ -150,25 +157,26 @@ const wrapText = (font: Pbf, text: string, width: number) => {
   return lines;
 };
 
-const measureText = (font: Pbf, text: string) => {
+const measureText = (chain: Pbf[], text: string) => {
   let width = 0;
   for (const char of text) {
-    width += readGlyph(font, char.codePointAt(0)!)?.advance ?? 0;
+    width += readGlyph(chain, char.codePointAt(0)!)?.glyph.advance ?? 0;
   }
   return width;
 };
 
 const drawText = (
   ctx: Ctx,
-  font: Pbf,
+  chain: Pbf[],
   text: string,
   x: number,
   baselineY: number,
 ) => {
   let cursor = x;
   for (const char of text) {
-    const glyph = readGlyph(font, char.codePointAt(0)!);
-    if (!glyph) continue;
+    const found = readGlyph(chain, char.codePointAt(0)!);
+    if (!found) continue;
+    const { glyph, font } = found;
     const lines = glyph.data.split("\n");
     const gx = cursor + glyph.left;
     // PBF stores the glyph top as an offset from the line top (baseline
@@ -222,18 +230,59 @@ const main = () => {
   }));
   loaded.sort(sortFonts);
 
+  // Optional fallback: a PBF used for glyphs a row's font is missing, or a
+  // directory from which each row picks the fonts of its own pixel height.
+  const fallbackFiles: string[] =
+    typeof values.fallback === "string"
+      ? fs.statSync(path.resolve(values.fallback)).isDirectory()
+        ? fs
+            .readdirSync(path.resolve(values.fallback))
+            .filter((file) => file.endsWith(".pbf"))
+            .map((file) => path.resolve(values.fallback as string, file))
+        : [path.resolve(values.fallback)]
+      : [];
+  const fallbacks: LoadedFont[] = fallbackFiles.map((file) => ({
+    name: path.basename(file, ".pbf"),
+    file,
+    font: readPbf(fs.readFileSync(file)),
+  }));
+
+  const fallbackFor = (row: LoadedFont) => {
+    const bold = row.name.endsWith("_BOLD");
+    return fallbacks
+      .filter(
+        (entry) =>
+          entry.file !== row.file &&
+          entry.font.maxHeight === row.font.maxHeight,
+      )
+      .sort(
+        (a, b) =>
+          Number(b.name.endsWith("_BOLD") === bold) -
+            Number(a.name.endsWith("_BOLD") === bold) ||
+          a.name.length - b.name.length ||
+          a.name.localeCompare(b.name),
+      );
+  };
+
   const sampleLines = (
     typeof values.text === "string" ? values.text : DEFAULT_TEXT
   ).split("\n");
 
   const sheets = loaded.map((loadedFont) => {
     const { font } = loadedFont;
+    const fallbackEntries = fallbackFor(loadedFont);
+    const chain = [font, ...fallbackEntries.map((entry) => entry.font)];
     const covered = new Set<number>();
     for (const line of sampleLines) {
       for (const char of line) covered.add(char.codePointAt(0)!);
     }
-    const missing = Object.keys(font.offsetTables)
-      .map(Number)
+    const available = new Set<number>();
+    for (const entry of chain) {
+      for (const key of Object.keys(entry.offsetTables)) {
+        available.add(Number(key));
+      }
+    }
+    const missing = [...available]
       .filter(
         (cp) =>
           !covered.has(cp) &&
@@ -248,7 +297,13 @@ const main = () => {
         "extra: " + missing.map((cp) => String.fromCodePoint(cp)).join(" "),
       );
     }
-    return { ...loadedFont, lines, missing };
+    return {
+      ...loadedFont,
+      chain,
+      fallbackName: fallbackEntries[0]?.name ?? "",
+      lines,
+      missing,
+    };
   });
 
   // Choose a UI font for the labels: prefer stock GOTHIC_14, else the smallest.
@@ -256,6 +311,12 @@ const main = () => {
     loaded.find((entry) => entry.name === "GOTHIC_14") ??
     [...loaded].sort((a, b) => a.font.maxHeight - b.font.maxHeight)[0]!;
   const labelFont = labelSource.font;
+  // The labels are Latin, which the specimen fonts often do not have; draw
+  // them with the same fallback chain so they are readable.
+  const labelChain = [
+    labelFont,
+    ...fallbackFor(labelSource).map((entry) => entry.font),
+  ];
 
   const margin = 12;
   const padTop = 10;
@@ -267,21 +328,22 @@ const main = () => {
   const title = values.pebble ? "PebbleOS firmware fonts" : "Font specimen";
 
   const labels = sheets.map(
-    ({ name, font }) =>
+    ({ name, font, fallbackName }) =>
       `${name}  ·  ${font.maxHeight}px  ·  ${font.numberOfGlyphs} glyphs  ·  ` +
-      `${font.features.compressed ? "RLE4" : "plain"}  ·  ${font.features.offsetByteWidth * 8}-bit offsets`,
+      `${font.features.compressed ? "RLE4" : "plain"}  ·  ${font.features.offsetByteWidth * 8}-bit offsets` +
+      (fallbackName ? `  ·  +${fallbackName}` : ""),
   );
   const widestSample = Math.max(
     ...sheets.flatMap((sheet) =>
-      sheet.lines.map((line) => measureText(sheet.font, line)),
+      sheet.lines.map((line) => measureText(sheet.chain, line)),
     ),
   );
   const contentWidth = Math.max(
     Math.min(widestSample, maxWidth),
-    ...labels.map((label) => measureText(labelFont, label)),
+    ...labels.map((label) => measureText(labelChain, label)),
   );
   const wrappedLines = sheets.map((sheet) =>
-    sheet.lines.flatMap((line) => wrapText(sheet.font, line, contentWidth)),
+    sheet.lines.flatMap((line) => wrapText(sheet.chain, line, contentWidth)),
   );
 
   const titleHeight = labelFont.maxHeight * 2 + titleGap + 4;
@@ -322,11 +384,11 @@ const main = () => {
   ctx.scale(scale, scale);
 
   ctx.fillStyle = "#111111";
-  drawText(ctx, labelFont, title, margin, margin + labelFont.maxHeight);
+  drawText(ctx, labelChain, title, margin, margin + labelFont.maxHeight);
   ctx.fillStyle = "#666666";
   drawText(
     ctx,
-    labelFont,
+    labelChain,
     `${layout.length} font${layout.length === 1 ? "" : "s"} · ` +
       `${values.pebble ? path.resolve(values.pebble as string) : "user supplied"}`,
     margin,
@@ -349,7 +411,7 @@ const main = () => {
     ctx.fillStyle = "#333333";
     drawText(
       ctx,
-      labelFont,
+      labelChain,
       row.label,
       margin,
       row.rowTop + padTop + labelFont.maxHeight,
@@ -367,7 +429,7 @@ const main = () => {
         "#f0f0f0",
       );
       ctx.fillStyle = "#000000";
-      drawText(ctx, font, row.lines[i]!, margin, baselineY);
+      drawText(ctx, row.sheet.chain, row.lines[i]!, margin, baselineY);
     }
 
     drawLine(ctx, margin, bottom, sheetWidth - margin, bottom, "#e8e8e8");
