@@ -24,14 +24,6 @@ For CJK codepoints specifically, this font targets specific standard documents. 
 - Reference the [FREQUENCY](./data/FREQUENCY) file and fill the remaining budget with the most frequent extra characters
 - Read [others](./data/pages/others) directory and add them to the final set unconditionally
 
-The PBF hash table stores each bucket's byte offset in a 16-bit field, so the
-offset tables for buckets 0..253 must fit in 64 KiB. With 2-byte codepoints
-and 4-byte glyph offsets that is 10922 entries; bucket 254 is stored after
-them and does not count. The previous 10600 target simply left headroom for
-the `others` files and future additions - now that the budget is understood,
-`combine.ts` fills the space with extra characters that cannot fit under the
-old target.
-
 ### Building pages.txt
 
 `build/pages.txt` (the codepoint set used for extraction) is generated from the
@@ -149,6 +141,9 @@ so composed glyphs keep working. It warns when the two projects have
 different heights or when a glyph references a shape the source lacks.
 
 ### Document Coverage
+
+Overall **10,978 glyphs** are bundled into each font: the characters selected
+from the documents below plus the wildcard glyph.
 
 | Script                       | Document                   | Coverage            |
 | ---------------------------- | -------------------------- | ------------------- |
