@@ -38,6 +38,11 @@ const wildcardWidth = definition.wildcardWidth ?? 7;
 const forceAutohint = definition.forceAutohint ?? false;
 const ranges: [number, number][] = definition.ranges ?? [[-Infinity, Infinity]];
 const autoJiggle: false | [number, number] = definition.autoJiggle ?? false;
+// 0 disables the custom rasterizer and uses the stock FreeType pipeline
+const strokeWidth = definition.strokeWidth ?? 0;
+const thinWidth = definition.thinWidth;
+const supersample = definition.supersample ?? 8;
+const outputDir = definition.outputDir ?? `./fonts/${fontName}`;
 
 const segmentor = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const cjk = Array.from(
@@ -45,9 +50,9 @@ const cjk = Array.from(
 ).map((s) => s.segment);
 const extractor = new FontExtractor(fontFile);
 
-fs.mkdirSync(`./fonts/${fontName}`, { recursive: true });
-fs.mkdirSync(`./fonts/${fontName}/glyphs`, { recursive: true });
-fs.mkdirSync(`./fonts/${fontName}/shapes`, { recursive: true });
+fs.mkdirSync(outputDir, { recursive: true });
+fs.mkdirSync(`${outputDir}/glyphs`, { recursive: true });
+fs.mkdirSync(`${outputDir}/shapes`, { recursive: true });
 
 let written = 0;
 
@@ -67,7 +72,13 @@ for (const char of cjk) {
         advance: number;
       } = false;
 
-  if (typeof autoJiggle === "object") {
+  if (strokeWidth > 0) {
+    glyph = extractor.convertStroked(codepoint, renderWidth, renderHeight, {
+      strokeWidth,
+      thinWidth,
+      supersample,
+    });
+  } else if (typeof autoJiggle === "object") {
     glyph = extractor.autoJiggle(
       codepoint,
       autoJiggle[0],
@@ -95,27 +106,27 @@ for (const char of cjk) {
 
     if (
       !values.force &&
-      fs.existsSync(`./fonts/${fontName}/glyphs/${codepoint}.txt`)
+      fs.existsSync(`${outputDir}/glyphs/${codepoint}.txt`)
     ) {
       continue;
     }
 
     fs.writeFileSync(
-      `./fonts/${fontName}/shapes/${codepoint}.txt`,
+      `${outputDir}/shapes/${codepoint}.txt`,
       `${top} ${left}\n${glyph.shape}`,
     );
 
     fs.writeFileSync(
-      `./fonts/${fontName}/glyphs/${codepoint}.txt`,
+      `${outputDir}/glyphs/${codepoint}.txt`,
       `${Math.round(glyph.advance + advanceOffset)}\n0 0 ${codepoint}`,
     );
     written++;
   }
 }
 
-if (!fs.existsSync(`./fonts/${fontName}/font.json`)) {
+if (!fs.existsSync(`${outputDir}/font.json`)) {
   fs.writeFileSync(
-    `./fonts/${fontName}/font.json`,
+    `${outputDir}/font.json`,
     JSON.stringify({
       name: fontName,
       height: fontSize,
@@ -134,18 +145,23 @@ const generateWildcard = (width: number, height: number) => {
   return lines.join("\n");
 };
 
-if (!fs.existsSync(`./fonts/${fontName}/glyphs/9647.txt`)) {
+if (!fs.existsSync(`${outputDir}/glyphs/9647.txt`)) {
   // Writes the wildcard glyph to make the font buildable
   fs.writeFileSync(
-    `./fonts/${fontName}/glyphs/9647.txt`,
+    `${outputDir}/glyphs/9647.txt`,
     `${wildcardWidth + 2}\n0 0 WILDCARD`,
   );
   fs.writeFileSync(
-    `./fonts/${fontName}/shapes/WILDCARD.txt`,
+    `${outputDir}/shapes/WILDCARD.txt`,
     `${fontSize - wildcardHeight + 1} 1\n` +
       generateWildcard(wildcardWidth, wildcardHeight),
   );
   written++;
 }
 
-console.log(`Extracted and wrote ${written} glyphs`);
+console.log(
+  `Extracted and wrote ${written} glyphs to ${outputDir}` +
+    (strokeWidth > 0
+      ? ` with the stroke rasterizer (target ${strokeWidth}px)`
+      : ""),
+);

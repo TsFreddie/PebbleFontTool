@@ -68,10 +68,61 @@ bun run ./PebbleFontTool/scripts/extract.ts build/fusion12.json
 
 Definitions support `fontFile`, `fontName`, `fontSize`, `topOffset`,
 `leftOffset`, `advanceOffset`, `renderWidth`, `renderHeight`,
-`wildcardWidth`, `wildcardHeight`, `ranges`, `autoJiggle` and
-`forceAutohint`. Glyphs go to `./fonts/<fontName>` relative to the current
-directory, so run the scripts from the tumbled project root. Pass `--force`
-to overwrite existing glyphs; without it, existing files are kept.
+`wildcardWidth`, `wildcardHeight`, `ranges`, `autoJiggle`, `forceAutohint`
+and the stroke rasterizer options below. Glyphs go to
+`./fonts/<fontName>` relative to the current directory (or to `outputDir`),
+so run the scripts from the tumbled project root. Pass `--force` to
+overwrite existing glyphs; without it, existing files are kept.
+
+### Stroke rasterizer
+
+FreeType (even with its autohinter) renders CJK stems at a mix of 1, 2 and
+3 pixels: the autohinter only _prefers_ the standard stem width and hinting
+moves individual stems around, so neighbouring strokes end up visibly
+different. Setting `strokeWidth` in a definition switches extraction to
+[`scripts/stroke_rasterizer.ts`](./scripts/stroke_rasterizer.ts), which keeps
+the shape of the glyph and normalizes the width of its stems:
+
+- the outline is rendered unhinted at `supersample` x the target size and box
+  downsampled to a coverage bitmap
+- 50% coverage is the _reference_ bitmap: it has the right shape - corners,
+  joins, diagonals, counters - but stems come out 1 to 3 pixels wide depending
+  on where they fall on the pixel grid
+- every row and column is then scanned. A short run (1..3 pixels) whose pixels
+  all sit in a long perpendicular run, and which is bounded by background, is a
+  stem cross section. Cross sections that continue each other are chained into
+  strokes, and the width and the offset are chosen once per stroke from the
+  coverage, so a stroke cannot wobble or grow a spike. Long runs - stroke
+  bodies, diagonals, joins, filled areas - are left alone, and a cross section
+  only ever moves inside the reference ink, so nothing protrudes
+- an edit that would cost a counter or a connected component is dropped
+
+The result keeps the reference shape (no chipped corners, no shifted strokes,
+no lost counters, no spikes) with stems at `strokeWidth` wherever the glyph has
+room, `thinWidth` where it is thin or crowded, and never 3px. On TUMBLED_28/36
+the widths measured perpendicular to the strokes go from 2.79% / 31.93% being
+3px to 0.39% / 0.80%, and the fonts keep +3.7% / -6.0% of the old ink.
+
+| option        | default   | meaning                                       |
+| ------------- | --------- | --------------------------------------------- |
+| `strokeWidth` | `0` (off) | width of an uncrowded stem in pixels          |
+| `thinWidth`   | `1`       | width used for thin stems                     |
+| `supersample` | `8`       | rasterization scale (pixels per target pixel) |
+| `maxPasses`   | `4`       | maximum normalization passes                  |
+
+Example definition (also useful to compare against the stock pipeline):
+
+```json
+{
+  "fontName": "TUMBLED_28",
+  "fontSize": 28,
+  "fontFile": "./build/SourceHanSansSC-Medium.otf",
+  "renderWidth": 22,
+  "renderHeight": 22,
+  "topOffset": 5,
+  "strokeWidth": 2
+}
+```
 
 To find regional glyph variants (e.g. Japanese vs Simplified Chinese forms),
 compare fonts against the same page set:
