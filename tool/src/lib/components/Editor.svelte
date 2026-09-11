@@ -1068,6 +1068,26 @@
 						/>
 					</div>
 				</div>
+
+				<div class="flex flex-col rounded border-2 px-2 py-1">
+					<div class="flex gap-2">
+						<div class="w-18 font-bold">Regionals:</div>
+					</div>
+					<div class="grid-cols-4">
+						<div class="flex flex-wrap gap-2 text-2xl" style="font-family: 'Noto Sans CJK SC'">
+							{glyphName}
+						</div>
+						<div class="flex flex-wrap gap-2 text-2xl" style="font-family: 'Noto Sans CJK TC'">
+							{glyphName}
+						</div>
+						<div class="flex flex-wrap gap-2 text-2xl" style="font-family: 'Noto Sans CJK HK'">
+							{glyphName}
+						</div>
+						<div class="flex flex-wrap gap-2 text-2xl" style="font-family: 'Noto Sans CJK JP'">
+							{glyphName}
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>

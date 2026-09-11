@@ -28,6 +28,7 @@
 	let filter = $state<Shape>();
 	let bold = $state<BoldMode>(0);
 	let regionalMapping = $state<RegionalMapping | undefined>(undefined);
+	let showRegionalHints = $state<boolean>(true);
 
 	let goto = $state<string>('');
 	let seqFilter = $state<string>('');
@@ -435,6 +436,16 @@
 					onclick={quickResolve}>Quick Resolve</button
 				>
 
+				{#if regionalMapping}
+					<button
+						class="rounded {showRegionalHints
+							? 'bg-orange-400 hover:bg-orange-500'
+							: 'bg-zinc-400 hover:bg-zinc-500'} px-3 py-1 text-white"
+						onclick={() => (showRegionalHints = !showRegionalHints)}
+						>Regional Hints: {showRegionalHints ? 'On' : 'Off'}</button
+					>
+				{/if}
+
 				{#if project}
 					<div>
 						{project.glyphs.length} / {reference.glyphs.length} ({Math.floor(
@@ -456,8 +467,8 @@
 				{@const missingRegional = missingRegionalVariants.has(glyph.codepoint)}
 				<button
 					class="relative flex h-16 w-16 cursor-pointer items-center justify-center border ring-inset hover:bg-blue-100"
-					class:bg-zinc-300={!projectGlyph && !missingRegional}
-					class:bg-orange-300={missingRegional}
+					class:bg-zinc-300={!projectGlyph && !(missingRegional && showRegionalHints)}
+					class:bg-orange-300={missingRegional && showRegionalHints}
 					class:ring-2={isLastClicked || isBookmarked || filterHit}
 					class:ring-blue-500={filterHit}
 					class:ring-amber-500={isLastClicked}

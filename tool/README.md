@@ -6,12 +6,13 @@ This is a font editor specifically designed for tumbled fonts.
 
 Before running this tool. You need to generate the reference Unifont font first:
 
-In the root directory of the tumbled project, run:
+In the root directory of the tumbled project (with PebbleFontTool cloned in),
+run:
 
 ```bash
 bun install
-bun run ./scripts/combine.ts
-bun run ./scripts/extract.ts
+bun run ./PebbleFontTool/scripts/combine.ts # builds build/pages.txt from data/pages
+bun run ./PebbleFontTool/scripts/extract.ts # builds fonts/unifont from build/pages.txt
 ```
 
 To run the tool:
