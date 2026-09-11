@@ -32,8 +32,7 @@ bun run ./PebbleFontTool/scripts/combine.ts
 
 ### Document Coverage
 
-Overall **10,978 glyphs** are bundled into each font: the characters selected
-from the documents below plus the wildcard glyph.
+The format allows up to 11092 glyphs per font; this set bundles 10978.
 
 | Script                       | Document                   | Coverage            |
 | ---------------------------- | -------------------------- | ------------------- |
