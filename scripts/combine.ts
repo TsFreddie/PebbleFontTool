@@ -3,8 +3,17 @@ import fs from "node:fs";
 import path from "path";
 import { FontExtractor } from "./extractor";
 
-const hardCap = 10922;
-const cjkCap = 10600;
+// The PBF hash table stores each bucket's byte offset in a 16-bit field, so
+// the offset tables for buckets 0..253 must fit in 64 KiB. CJK fonts use
+// 2-byte codepoints and 4-byte glyph offsets (6 bytes per entry), i.e. at
+// most floor(65535 / 6) = 10922 entries. Bucket 254 is stored after them and
+// is the only one that does not count against the limit.
+const BUCKET_OFFSET_LIMIT = 10922;
+const HASH_TABLE_SIZE = 255;
+// One slot for the wildcard glyph the extractor always adds, plus slack.
+const RESERVED_GLYPHS = 2;
+
+const bucketOf = (char: string) => char.codePointAt(0)! % HASH_TABLE_SIZE;
 
 // Supported in pebble GOTHIC
 const ignores = new Set([
@@ -40,15 +49,15 @@ const ignores = new Set([
 
 const __dirname = new URL(".", import.meta.url).pathname;
 
-const listStandards = fs.readdirSync(
-  path.resolve(__dirname, "../data/pages/standards"),
-);
-const listExtra = fs.readdirSync(
-  path.resolve(__dirname, "../data/pages/extra"),
-);
-const listOthers = fs.readdirSync(
-  path.resolve(__dirname, "../data/pages/others"),
-);
+const listStandards = fs
+  .readdirSync(path.resolve(__dirname, "../data/pages/standards"))
+  .filter((file) => file.endsWith(".txt"));
+const listExtra = fs
+  .readdirSync(path.resolve(__dirname, "../data/pages/extra"))
+  .filter((file) => file.endsWith(".txt"));
+const listOthers = fs
+  .readdirSync(path.resolve(__dirname, "../data/pages/others"))
+  .filter((file) => file.endsWith(".txt"));
 
 const frequencyMap: Record<string, number> = Object.fromEntries(
   fs
@@ -59,6 +68,14 @@ const frequencyMap: Record<string, number> = Object.fromEntries(
 );
 
 const result = new Set<string>();
+// Entries in buckets 0..253, the ones limited by the 16-bit hash table offset.
+let bucketEntries = 0;
+const addResult = (char: string) => {
+  result.add(char);
+  if (bucketOf(char) !== HASH_TABLE_SIZE - 1) {
+    bucketEntries++;
+  }
+};
 const segmentor = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 const fileSets: Record<string, Set<string>> = {};
@@ -73,9 +90,7 @@ const isIgnored = (char: string) => {
     return false;
   }
 
-  if (ignores.has(codepoint)) {
-    return false;
-  }
+  return ignores.has(codepoint);
 };
 
 const isSupported = (char: string) => {
@@ -114,7 +129,7 @@ for (const file of listStandards) {
       continue;
     }
 
-    result.add(char);
+    addResult(char);
   }
 }
 
@@ -140,20 +155,9 @@ for (const file of listExtra) {
   }
 }
 
-const extraCharacters = Array.from(extras).sort(
-  (a, b) => (frequencyMap[b] ?? 0) - (frequencyMap[a] ?? 0),
-);
-console.log(extraCharacters);
-const addingCount = Math.max(0, cjkCap - result.size);
-const addingCharacters = extraCharacters.splice(0, addingCount);
-addingCharacters.forEach((c) => result.add(c));
-
-if (extraCharacters.length > 0) {
-  console.log(
-    `Removed ${extraCharacters.length} characters: ${extraCharacters.join("")}`,
-  );
-}
-
+// `others` are required extras (place names, medicines, ...): include them
+// before spending the remaining offset-table budget on frequency-sorted
+// `extra` characters.
 for (const file of listOthers) {
   const content = fs.readFileSync(
     path.resolve(__dirname, `../data/pages/others/${file}`),
@@ -170,15 +174,54 @@ for (const file of listOthers) {
       continue;
     }
 
-    if (result.size >= hardCap) {
-      console.log(`Ignoring ${char} (${char.charCodeAt(0)!}) due to hard cap`);
-    }
-    result.add(char);
+    addResult(char);
   }
+}
+
+if (bucketEntries > BUCKET_OFFSET_LIMIT) {
+  console.error(
+    `Required characters need ${bucketEntries} bucket 0..253 entries but the ` +
+      `PBF format only allows ${BUCKET_OFFSET_LIMIT}`,
+  );
+  process.exit(1);
+}
+
+// Spend what is left of the offset-table budget on the most frequent extra
+// characters. The previous selection is a prefix of this frequency order, so
+// growing the budget never drops a character that was already included.
+const extraCharacters = Array.from(extras).sort(
+  (a, b) => (frequencyMap[b] ?? 0) - (frequencyMap[a] ?? 0),
+);
+const skippedExtras: string[] = [];
+for (const char of extraCharacters) {
+  if (result.has(char) || !isSupported(char)) {
+    continue;
+  }
+
+  // Bucket 254 is stored after the limited buckets and is not counted here.
+  if (
+    bucketOf(char) !== HASH_TABLE_SIZE - 1 &&
+    bucketEntries >= BUCKET_OFFSET_LIMIT - RESERVED_GLYPHS
+  ) {
+    skippedExtras.push(char);
+    continue;
+  }
+
+  addResult(char);
+}
+
+if (skippedExtras.length > 0) {
+  console.log(
+    `Removed ${skippedExtras.length} characters: ${skippedExtras.join("")}`,
+  );
 }
 
 console.log("Deduped all characters in the CJK directory");
 console.log(`Total characters: ${result.size}`);
+console.log(
+  `Bucket 0..253 entries: ${bucketEntries + 1} / ${BUCKET_OFFSET_LIMIT} ` +
+    "(including the wildcard glyph)",
+);
 
 const resultList = Array.from(result).sort(
   (a, b) => a.codePointAt(0)! - b.codePointAt(0)!,
