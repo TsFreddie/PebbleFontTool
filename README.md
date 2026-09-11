@@ -59,34 +59,11 @@ bun run ./PebbleFontTool/scripts/extract.ts build/fusion12.json
 ```
 
 Definitions support `fontFile`, `fontName`, `fontSize`, `topOffset`,
-`leftOffset`, `advanceOffset`, `renderWidth`, `renderHeight`,
-`wildcardWidth`, `wildcardHeight`, `ranges`, `autoJiggle`, `forceAutohint`
-and the stroke rasterizer options below. Glyphs go to
-`./fonts/<fontName>` relative to the current directory (or to `outputDir`),
-so run the scripts from the tumbled project root. Pass `--force` to
-overwrite existing glyphs; without it, existing files are kept.
-
-### Stroke rasterizer
-
-FreeType (even with its autohinter) renders CJK stems at a mix of 1, 2 and
-3 pixels, so neighbouring strokes end up visibly different. Setting
-`strokeWidth` in a definition switches extraction to
-[`scripts/stroke_rasterizer.ts`](./scripts/stroke_rasterizer.ts), which keeps
-the shape of the glyph and normalizes its stems to `strokeWidth` pixels
-(`thinWidth` where a stroke is thin or crowded). The glyph's corners, joins,
-counters and diagonals are kept as they are.
-
-```json
-{
-  "fontName": "TUMBLED_28",
-  "fontSize": 28,
-  "fontFile": "./build/SourceHanSansSC-Medium.otf",
-  "renderWidth": 22,
-  "renderHeight": 22,
-  "topOffset": 5,
-  "strokeWidth": 2
-}
-```
+`leftOffset`, `advanceOffset`, `renderWidth`, `renderHeight`, `wildcardWidth`,
+`wildcardHeight`, `ranges`, `autoJiggle` and `forceAutohint`. Glyphs go to
+`./fonts/<fontName>` relative to the current directory (or to `outputDir`), so
+run the scripts from the tumbled project root. Pass `--force` to overwrite
+existing glyphs; without it, existing files are kept.
 
 To find regional glyph variants (e.g. Japanese vs Simplified Chinese forms),
 compare fonts against the same page set:
