@@ -16,37 +16,22 @@ This conversion can cut the design work in half by not having to worry about mak
 
 > PebbleOS currently works directly with codepoints with no concept of graphemes / glyphs.
 
-For CJK codepoints specifically, this font targets specific standard documents. These documents are compiled into a giant codepoint list and use the following steps to determine which to include:
-
-- Read [pages](./data/pages) directory for all the de-duplicated codepoints
-- Remove all codepoints exceeding 16 bits
-- Read [extra](./data/pages/extra) directory for additional codepoints
-- Reference the [FREQUENCY](./data/FREQUENCY) file and fill the remaining budget with the most frequent extra characters
-- Read [others](./data/pages/others) directory and add them to the final set unconditionally
+The fonts target the standard CJK documents listed below, plus the
+[extra](./data/pages/extra) and [others](./data/pages/others) documents (place
+names, medicines, ...) and the most frequent characters from
+[`FREQUENCY`](./data/FREQUENCY).
 
 ### Building pages.txt
 
-`build/pages.txt` (the codepoint set used for extraction) is generated from the
-source documents in [`data/pages`](./data/pages) and the frequency table in
-[`data/FREQUENCY`](./data/FREQUENCY). From the tumbled project root (with
-PebbleFontTool cloned into it):
+`build/pages.txt` (the codepoint set used for extraction) is generated from
+those documents. From the tumbled project root (with PebbleFontTool cloned into
+it):
 
 ```bash
 bun run ./PebbleFontTool/scripts/combine.ts
 ```
 
-`combine.ts` reads the `standards`, `extra` and `others` documents and:
-
-- drops codepoints above U+FFFF, codepoints Unifont has no glyph for, and
-  codepoints already covered by the stock GOTHIC fonts
-- takes all `standards` documents first
-- adds all `others` documents (place names, medicines, ...) unconditionally
-- fills the rest of the bucket 0..253 offset-table budget with the most
-  frequent `extra` characters (reserving room for the wildcard glyph);
-  because the fill is a frequency prefix, growing the budget never drops a
-  character that was already included
-- fails if the required documents alone exceed the format limit
-- prints a per-document coverage report and writes `build/pages.txt`
+It prints the coverage report and writes `build/pages.txt`.
 
 `scripts/extract.ts` then rasterizes those codepoints into a glyph project:
 
