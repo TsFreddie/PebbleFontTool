@@ -31,6 +31,7 @@ const { positionals, values } = parseArgs({
     "max-width": { type: "string", short: "w" },
     all: { type: "boolean" },
     text: { type: "string", short: "t" },
+    title: { type: "string" },
     coverage: { type: "boolean" },
     fallback: { type: "string", short: "f" },
   },
@@ -325,7 +326,27 @@ const main = () => {
   const lineGap = 6;
   const titleGap = 10;
 
-  const title = values.pebble ? "PebbleOS firmware fonts" : "Font specimen";
+  const commonName = (() => {
+    const stems = loaded.map((entry) =>
+      entry.name.replace(/_\d+(_BOLD)?$/, ""),
+    );
+    let prefix = stems[0] ?? "";
+    for (const stem of stems) {
+      while (prefix && !stem.startsWith(prefix)) prefix = prefix.slice(0, -1);
+    }
+    return prefix.replace(/[_-]+$/, "");
+  })();
+  const title =
+    typeof values.title === "string"
+      ? values.title
+      : values.pebble
+        ? "PebbleOS firmware fonts"
+        : commonName || "Font specimen";
+  // The path of a --pebble checkout is worth printing; for explicit PBFs the
+  // fonts speak for themselves.
+  const subtitle = values.pebble
+    ? `${loaded.length} fonts · ${path.resolve(values.pebble as string)}`
+    : "";
 
   const labels = sheets.map(
     ({ name, font, fallbackName }) =>
@@ -346,7 +367,7 @@ const main = () => {
     sheet.lines.flatMap((line) => wrapText(sheet.chain, line, contentWidth)),
   );
 
-  const titleHeight = labelFont.maxHeight * 2 + titleGap + 4;
+  const titleHeight = labelFont.maxHeight * (subtitle ? 2 : 1) + titleGap + 4;
   const rows = sheets.map((sheet, index) => {
     const { font } = sheet;
     const lineHeight = font.maxHeight + lineGap;
@@ -385,15 +406,16 @@ const main = () => {
 
   ctx.fillStyle = "#111111";
   drawText(ctx, labelChain, title, margin, margin + labelFont.maxHeight);
-  ctx.fillStyle = "#666666";
-  drawText(
-    ctx,
-    labelChain,
-    `${layout.length} font${layout.length === 1 ? "" : "s"} · ` +
-      `${values.pebble ? path.resolve(values.pebble as string) : "user supplied"}`,
-    margin,
-    margin + labelFont.maxHeight * 2 + titleGap,
-  );
+  if (subtitle) {
+    ctx.fillStyle = "#666666";
+    drawText(
+      ctx,
+      labelChain,
+      subtitle,
+      margin,
+      margin + labelFont.maxHeight * 2 + titleGap,
+    );
+  }
 
   for (const row of layout) {
     const { font } = row.sheet;
