@@ -335,15 +335,21 @@ export class PBFBuilder {
     } else {
       const uncompressedData = this.buildTables(false);
       const compressedData = this.buildTables(true);
-      // Prefer the smaller glyph table, but a slightly larger valid font
-      // beats a smaller one whose bucket offsets overflow (compression can
-      // change the offset width, and therefore the limit).
+      // Prefer the variant that keeps every glyph, then one whose bucket
+      // offsets do not overflow (compression changes the offset width and
+      // can drop glyphs whose RLE runs exceed the 8-bit unit count), then
+      // the smaller glyph table.
       const ordered = [
         { data: uncompressedData, compressed: false },
         { data: compressedData, compressed: true },
-      ].sort((a, b) => a.data.glyphTable.length - b.data.glyphTable.length);
-      const chosen =
-        ordered.find((entry) => !entry.data.offsetTableOverflow) ?? ordered[0]!;
+      ].sort(
+        (a, b) =>
+          Number(a.data.offsetTableOverflow) -
+            Number(b.data.offsetTableOverflow) ||
+          a.data.ignoredGlyphs.length - b.data.ignoredGlyphs.length ||
+          a.data.glyphTable.length - b.data.glyphTable.length,
+      );
+      const chosen = ordered[0]!;
       result = chosen.data;
       compressed = chosen.compressed;
     }
