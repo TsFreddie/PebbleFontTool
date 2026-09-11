@@ -4,27 +4,30 @@
 		checkFilter,
 		loadProject,
 		loadReference,
+		loadRegionalMapping,
 		render,
 		unloadProject,
 		unloadReference
 	} from '$lib';
 	import Editor from '$lib/components/Editor.svelte';
 	import BatchDialog from '$lib/components/BatchDialog.svelte';
-	import type { Glyph, Project, Shape } from '$lib/server/loader';
+	import type { Glyph, Project, Shape, RegionalMapping } from '$lib/server/loader';
 	import { onMount } from 'svelte';
 	import { glyphProgressStore } from '$lib/stores/glyphProgress';
 	import { SEQS } from '$lib/seq';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let editor: Editor;
 
 	let reference = $state<Project>();
 	let referenceFontName = $state<string>('unifont');
 	let project = $state<Project>();
-	let projectGlyphs = $state<Record<number, Glyph>>({});
+	let projectGlyphs = $state<Record<string, Glyph>>({});
 	let fontName = $state<string>('');
 	const glyphSize = (height: number) => height + Math.floor(height / 2);
 	let filter = $state<Shape>();
 	let bold = $state<BoldMode>(0);
+	let regionalMapping = $state<RegionalMapping | undefined>(undefined);
 
 	let goto = $state<string>('');
 	let seqFilter = $state<string>('');
@@ -33,11 +36,29 @@
 	let lastClickedCodepoint = $state<number | null>(null);
 	let bookmarks = $state<number[]>([]);
 
+	const missingRegionalVariants = $state<SvelteSet<number>>(new SvelteSet());
+
 	const updateProjectGlyphs = () => {
 		projectGlyphs = {};
+		missingRegionalVariants.clear();
 		if (!project) return;
 		for (const glyph of project.glyphs) {
-			projectGlyphs[glyph.codepoint] = glyph;
+			const key = glyph.regionalSuffix
+				? `${glyph.codepoint}-${glyph.regionalSuffix}`
+				: String(glyph.codepoint);
+			projectGlyphs[key] = glyph;
+		}
+		if (regionalMapping?.variants) {
+			for (const codepoint of Object.keys(regionalMapping.variants)) {
+				const cp = parseInt(codepoint);
+				const regions = regionalMapping.variants[cp];
+				for (const suffix of Object.values(regions)) {
+					if (!projectGlyphs[`${cp}-${suffix}`]) {
+						missingRegionalVariants.add(cp);
+						break;
+					}
+				}
+			}
 		}
 	};
 
@@ -161,6 +182,11 @@
 		reference = await loadProject(referenceFontName);
 		// Set initial project name in progress store
 		glyphProgressStore.setProjectName('REFERENCE');
+		try {
+			regionalMapping = await loadRegionalMapping();
+		} catch {
+			// regional_mapping.json may not exist
+		}
 	});
 
 	const openReference = (codepoint: number) => {
@@ -427,9 +453,11 @@
 				{@const filterHit = filterStats.set[index]}
 				{@const isLastClicked = lastClickedCodepoint === glyph.codepoint}
 				{@const isBookmarked = bookmarks.includes(glyph.codepoint)}
+				{@const missingRegional = missingRegionalVariants.has(glyph.codepoint)}
 				<button
 					class="relative flex h-16 w-16 cursor-pointer items-center justify-center border ring-inset hover:bg-blue-100"
-					class:bg-zinc-300={!projectGlyph}
+					class:bg-zinc-300={!projectGlyph && !missingRegional}
+					class:bg-orange-300={missingRegional}
 					class:ring-2={isLastClicked || isBookmarked || filterHit}
 					class:ring-blue-500={filterHit}
 					class:ring-amber-500={isLastClicked}

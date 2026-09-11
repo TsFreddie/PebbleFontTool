@@ -19,6 +19,7 @@ export interface ShapeLookup {
 export interface Glyph {
 	codepoint: number;
 	variant?: string;
+	regionalSuffix?: string;
 	advance: number;
 	shapes: ShapeLookup[];
 }
@@ -29,6 +30,12 @@ export interface Project {
 	shapes: Record<string, Shape>;
 	glyphs: Glyph[];
 }
+
+export type RegionSuffix = Record<string, string>;
+export type RegionalMapping = {
+	base: string;
+	variants: Record<number, RegionSuffix>;
+};
 
 export const loadShape = (filePath: string): Shape => {
 	const data = fs.readFileSync(filePath);
@@ -90,8 +97,23 @@ export const loadGlyph = (filePath: string): Glyph => {
 	return { codepoint, variant, advance, shapes };
 };
 
+export const loadRegionalGlyph = (filePath: string, suffix: string): Glyph => {
+	const glyph = loadGlyph(filePath);
+	glyph.regionalSuffix = suffix;
+	return glyph;
+};
+
 export const deleteGlyph = (filePath: string) => {
 	if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+};
+
+export const loadRegionalMapping = (): RegionalMapping => {
+	const data = fs.readFileSync('../../regional_mapping.json', 'utf-8');
+	return JSON.parse(data);
+};
+
+export const saveRegionalMapping = (mapping: RegionalMapping) => {
+	fs.writeFileSync('../../regional_mapping.json', JSON.stringify(mapping, null, 2));
 };
 
 // batch rename shape and replace all existing references

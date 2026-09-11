@@ -1,10 +1,11 @@
 import { pack, unpack } from 'msgpackr';
-import type { Glyph, Project, Shape } from './server/loader';
+import type { Glyph, Project, Shape, RegionalMapping } from './server/loader';
 import type { Action } from 'svelte/action';
 import { browser } from '$app/environment';
 
 const projects = new Map<string, Project>();
 const references = new Map<string, Project>();
+const regionalMappingCache = new Map<string, RegionalMapping>();
 
 const BASE_PATH = '../../fonts';
 
@@ -22,6 +23,7 @@ export const loadProject = async (font: string) => {
 
 	project.name = font;
 	projects.set(font, project);
+	console.log(project);
 	return project as Project;
 };
 
@@ -48,6 +50,19 @@ export const loadReference = async (font: string) => {
 
 export const unloadReference = (font: string) => {
 	references.delete(font);
+};
+
+export const loadRegionalMapping = async () => {
+	if (regionalMappingCache.size > 0) {
+		return regionalMappingCache.values().next().value;
+	}
+
+	const response = await fetch('/api/regional');
+	if (!response.ok) throw new Error('Failed to load regional mapping');
+	const buffer = new Uint8Array(await response.arrayBuffer());
+	const mapping = unpack(buffer) as RegionalMapping;
+	regionalMappingCache.set('default', mapping);
+	return mapping;
 };
 
 export const saveShape = async (font: string, name: string, shape: Shape) => {

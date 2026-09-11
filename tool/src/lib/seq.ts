@@ -121,5 +121,5 @@ export const SEQS = Object.fromEntries(
 );
 
 if (browser) {
-	window.SEQS = SEQS;
+	(window as any).SEQS = SEQS;
 }

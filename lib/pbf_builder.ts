@@ -130,6 +130,15 @@ const hasher = (codepoint: number) => {
   return codepoint % 255;
 };
 
+// Glyph bitmaps are zero-padded to a 32-bit word boundary (fontgen does the
+// same), and the firmware only ever loads whole glyphs so the padding is safe.
+const align4 = (length: number) => (4 - (length % 4)) % 4;
+
+// The firmware loads a whole hash bucket into a 1 KiB cache. The largest
+// entry (4 byte codepoint + 4 byte offset = 8 bytes) means at most 128
+// entries per bucket.
+const MAX_OFFSET_TABLE_ENTRIES = 128;
+
 export class PBFBuilder {
   private glyphs: Record<number, Glyph> = {};
 
@@ -171,6 +180,10 @@ export class PBFBuilder {
     }
 
     const glyphTable = new Writer();
+    // The glyph table starts with a zeroed 32-bit word so that an offset of 0
+    // can mean "glyph not present". Without it the first glyph (the wildcard)
+    // would be stored at offset 0 and treated as missing by the firmware.
+    glyphTable.writeUint32LE(0);
 
     if (this.glyphs[this.wildcardCodepoint] == undefined) {
       throw new Error("Wildcard glyph not found");
@@ -194,7 +207,7 @@ export class PBFBuilder {
     for (const g of glyphs) {
       const hash = hasher(g.codepoint);
       const offsetTable = offsetTables[hash]!;
-      if (offsetTable.length > 255) {
+      if (offsetTable.length >= MAX_OFFSET_TABLE_ENTRIES) {
         ignoredGlyphs.push(g);
         continue;
       }
@@ -222,6 +235,7 @@ export class PBFBuilder {
         glyphTable.writeInt8(g.glyph.top);
         glyphTable.writeInt8(g.glyph.advance);
         glyphTable.concat(compressedGlyph.buffer);
+        glyphTable.concat(Buffer.alloc(align4(compressedGlyph.buffer.length)));
       } else {
         offsetTable.push({
           codepoint: g.codepoint,
@@ -250,6 +264,7 @@ export class PBFBuilder {
           dataBuffer[bytePosition] = byte;
         }
         glyphTable.concat(dataBuffer);
+        glyphTable.concat(Buffer.alloc(align4(dataBytes)));
       }
 
       if (g.codepoint > 65535) {
@@ -280,11 +295,18 @@ export class PBFBuilder {
     }
 
     // build hash table
+    // Bucket 254's offset covers every earlier bucket, so it is the largest
+    // stored offset. If it does not fit the 16-bit field the font cannot be
+    // represented; build() reports that or picks the other variant.
+    const offsetTableBytes = hashTable[hashTable.length - 1]!.offset;
+    const offsetTableOverflow = offsetTableBytes > 65535;
     const hashTableBuffer = new Writer();
     for (const entry of hashTable) {
       hashTableBuffer.writeUint8(entry.hash);
       hashTableBuffer.writeUint8(entry.offsetTableSize);
-      hashTableBuffer.writeUint16LE(entry.offset);
+      // An overflowing candidate is never emitted (build() discards it or
+      // throws), so clamp instead of crashing while probing both variants.
+      hashTableBuffer.writeUint16LE(Math.min(entry.offset, 0xffff));
     }
 
     return {
@@ -292,6 +314,8 @@ export class PBFBuilder {
       codePointByteWidth,
       offsetByteWidth,
       glyphCount,
+      offsetTableBytes,
+      offsetTableOverflow,
       hashTable: hashTableBuffer.toBuffer(),
       offsetTable: offsetTableBuffer.toBuffer(),
       glyphTable: glyphTable.toBuffer(),
@@ -311,9 +335,25 @@ export class PBFBuilder {
     } else {
       const uncompressedData = this.buildTables(false);
       const compressedData = this.buildTables(true);
-      compressed =
-        compressedData.glyphTable.length < uncompressedData.glyphTable.length;
-      result = compressed ? compressedData : uncompressedData;
+      // Prefer the smaller glyph table, but a slightly larger valid font
+      // beats a smaller one whose bucket offsets overflow (compression can
+      // change the offset width, and therefore the limit).
+      const ordered = [
+        { data: uncompressedData, compressed: false },
+        { data: compressedData, compressed: true },
+      ].sort((a, b) => a.data.glyphTable.length - b.data.glyphTable.length);
+      const chosen =
+        ordered.find((entry) => !entry.data.offsetTableOverflow) ?? ordered[0]!;
+      result = chosen.data;
+      compressed = chosen.compressed;
+    }
+
+    if (result.offsetTableOverflow) {
+      throw new Error(
+        `Font is too large for the PBF format: buckets 0..253 need ` +
+          `${result.offsetTableBytes} bytes of offset tables, but the 16-bit ` +
+          `bucket offset field allows only 65535`,
+      );
     }
 
     // Build Header
