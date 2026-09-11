@@ -16,10 +16,13 @@ This conversion can cut the design work in half by not having to worry about mak
 
 > PebbleOS currently works directly with codepoints with no concept of graphemes / glyphs.
 
-The fonts target the standard CJK documents listed below, plus the
-[extra](./data/pages/extra) and [others](./data/pages/others) documents (place
-names, medicines, ...) and the most frequent characters from
-[`FREQUENCY`](./data/FREQUENCY).
+For CJK codepoints specifically, this font targets specific standard documents. These documents are compiled into a giant codepoint list and use the following steps to determine which to include:
+
+- Read [pages](./data/pages) directory for all the de-duplicated codepoints
+- Remove all codepoints exceeding 16 bits
+- Read [extra](./data/pages/extra) directory for additional codepoints
+- Reference the [FREQUENCY](./data/FREQUENCY) file and fill the remaining budget with the most frequent extra characters
+- Read [others](./data/pages/others) directory and add them to the final set unconditionally
 
 ### Building pages.txt
 
