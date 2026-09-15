@@ -127,10 +127,9 @@ bun run ./PebbleFontTool/scripts/extract.ts /tmp/TUMBLED_28.json
 bun run ./PebbleFontTool/scripts/merge.ts fonts/TUMBLED_28_EDIT_TEST fonts/TUMBLED_28 \
   --overwrite --all --write
 
-# 3. even the stroke widths in place; the target follows the glyph size
-#    (2px at 28, 3px at 36, where a 2px stem reads light)
+# 3. even the stroke widths in place (both packs target a 2px stem)
 bun run ./PebbleFontTool/bin/stem.ts fonts/TUMBLED_28 --in-place
-bun run ./PebbleFontTool/bin/stem.ts fonts/TUMBLED_36 --in-place --cap 3
+bun run ./PebbleFontTool/bin/stem.ts fonts/TUMBLED_36 --in-place
 ```
 
 `merge.ts --overwrite` replaces glyphs the target already has (without it the
