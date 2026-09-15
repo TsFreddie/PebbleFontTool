@@ -113,19 +113,38 @@ ignore the page set), and copies every shape referenced by the added glyphs
 so composed glyphs keep working. It warns when the two projects have
 different heights or when a glyph references a shape the source lacks.
 
-### Evening an existing pack
+### Regenerating a pack
 
-`bin/stem.ts` runs the two stem passes (`capStems` + `widenStems`) over a
-shapes directory instead of extracting from a font, so a pack keeps its own
-glyphs - hand edits and all - and only has its stroke widths evened out:
+Some packs carry hand-tuned glyphs (a thicker bar, a half-width `℃`), and
+extracting from the source font discards them. Keep those glyphs in an edit
+overlay and the regeneration becomes three steps:
 
 ```bash
-bun run bin/stem.ts fonts/TUMBLED_28 --out /tmp/TUMBLED_28 --cap 2 --widen 2
+# 1. extract from the source font (no stem passes)
+bun run ./PebbleFontTool/scripts/extract.ts /tmp/TUMBLED_28.json
+
+# 2. put the hand-tuned glyphs back (they are a local, git-ignored overlay)
+bun run ./PebbleFontTool/scripts/merge.ts fonts/TUMBLED_28_EDIT_TEST fonts/TUMBLED_28 \
+  --overwrite --all --write
+
+# 3. even the stroke widths in place
+bun run ./PebbleFontTool/bin/stem.ts fonts/TUMBLED_28 --in-place
 ```
 
-A pack built this way matches its previous self except for the stems the
-passes touch, which is the point: re-extracting from the source font would
-discard every hand adjustment the pack carries.
+`merge.ts --overwrite` replaces glyphs the target already has (without it the
+merge only adds new ones). `--all` is needed because a hand-tuned glyph may
+not be in the page set (the wildcard box, say).
+
+The overlay itself is derived by comparing a pack against a plain extraction
+of the same font, which catches both kinds of tuning - the bitmap and the
+advance:
+
+```bash
+bun run ./PebbleFontTool/bin/edits.ts fonts/TUMBLED_28 /tmp/plain_28 fonts/TUMBLED_28_EDIT_TEST
+```
+
+`bin/stem.ts` can also write to another directory (`--out`) instead of
+`--in-place`, and `--cap`/`--widen` set the target width (0 disables one).
 
 ## Language Packs (.pbl)
 

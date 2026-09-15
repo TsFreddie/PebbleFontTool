@@ -9,7 +9,7 @@
  *
  * Usage:
  *   bun run bin/stem.ts <shapes dir or font dir> --out <dir> [--cap 2] [--widen 2]
- *   bun run bin/stem.ts fonts/TUMBLED_28 --out /tmp/out --cap 2 --widen 0
+ *   bun run bin/stem.ts fonts/TUMBLED_28 --in-place   # rewrite the pack's shapes
  */
 import fs from "fs";
 import path from "path";
@@ -23,6 +23,7 @@ const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     out: { type: "string", short: "o" },
+    "in-place": { type: "boolean" },
     cap: { type: "string" },
     widen: { type: "string" },
   },
@@ -31,7 +32,7 @@ const { values, positionals } = parseArgs({
 const input = positionals[2];
 if (!input) {
   console.error(
-    "usage: bun run bin/stem.ts <shapes dir or font dir> --out <dir> [--cap 2] [--widen 2]",
+    "usage: bun run bin/stem.ts <shapes dir or font dir> --out <dir> [--cap 2] [--widen 2] | --in-place",
   );
   process.exit(1);
 }
@@ -44,9 +45,9 @@ if (!fs.existsSync(shapeDir)) {
   process.exit(1);
 }
 
-const outDir = path.resolve(
-  (values.out as string | undefined) ?? `${input}-stemmed`,
-);
+const outDir = values["in-place"]
+  ? shapeDir
+  : path.resolve((values.out as string | undefined) ?? `${input}-stemmed`);
 const capTarget = Number(values.cap ?? 2);
 const widenTarget = Number(values.widen ?? 2);
 fs.mkdirSync(outDir, { recursive: true });

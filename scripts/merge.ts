@@ -19,6 +19,7 @@ const { values, positionals } = parseArgs({
   options: {
     write: { type: "boolean", short: "w" },
     all: { type: "boolean" },
+    overwrite: { type: "boolean" },
     pages: { type: "string" },
   },
 });
@@ -88,7 +89,11 @@ for (const file of fs.readdirSync(glyphDir(from)).sort()) {
     continue;
   }
   if (!values.all && !pages.has(codepoint)) continue;
-  if (fs.existsSync(path.join(glyphDir(to), file))) continue;
+  // --overwrite replaces glyphs the target already has, which is what an edit
+  // overlay (see fonts/*_EDIT_TEST) needs; without it the merge only adds.
+  if (!values.overwrite && fs.existsSync(path.join(glyphDir(to), file))) {
+    continue;
+  }
   glyphsToAdd.push(file);
 }
 
@@ -109,12 +114,20 @@ for (const file of glyphsToAdd) {
 }
 
 const shapesToAdd = [...referenced]
-  .filter((name) => !fs.existsSync(path.join(shapeDir(to), `${name}.txt`)))
+  .filter(
+    (name) =>
+      values.overwrite ||
+      !fs.existsSync(path.join(shapeDir(to), `${name}.txt`)),
+  )
   .sort();
 
 console.log(`Merge ${from} -> ${to} ${values.write ? "[write]" : "[dry run]"}`);
-console.log(`  glyphs to add: ${glyphsToAdd.length}`);
-console.log(`  shapes to add: ${shapesToAdd.length}`);
+console.log(
+  `  glyphs to ${values.overwrite ? "replace" : "add"}: ${glyphsToAdd.length}`,
+);
+console.log(
+  `  shapes to ${values.overwrite ? "replace" : "add"}: ${shapesToAdd.length}`,
+);
 if (brokenRefs > 0) {
   console.log(`  broken references in source: ${brokenRefs}`);
 }
