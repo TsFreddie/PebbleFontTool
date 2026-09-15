@@ -34,6 +34,7 @@ const { positionals, values } = parseArgs({
     title: { type: "string" },
     coverage: { type: "boolean" },
     fallback: { type: "string", short: "f" },
+    bg: { type: "string" },
   },
 });
 
@@ -47,6 +48,7 @@ const maxWidth =
   typeof values["max-width"] === "string"
     ? parseInt(values["max-width"], 10)
     : 1100;
+const background = typeof values.bg === "string" ? values.bg : "#ffffff";
 
 // Default sample text. The pangram contains every letter; use --text to render
 // something else (a literal \n starts a new line).
@@ -399,7 +401,7 @@ const main = () => {
   const canvas = createCanvas(sheetWidth * scale, sheetHeight * scale);
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.save();
   ctx.scale(scale, scale);

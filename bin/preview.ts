@@ -19,10 +19,11 @@ Options:
   -l, --line-height <pixels>  Line height in pixels (default: auto-calculated based on glyphs)
   -t, --text <string>     Sample text to render
   --text-file <path>      Read sample text from file
+  --bg <color>            Background color (default: #ffffff)
 
 Examples:
   preview.ts font.pbf
-  preview.ts font.pbf -o output.png -w 800 -h 600
+  preview.ts font.pbf -o output.png -w 800 -h 600 --bg "#cccccc"
   preview.ts font.pbf -t "Hello World"
   preview.ts font.pbf --text-file sample.txt -w 1024
   preview.ts font1.pbf font2.pbf -o preview.png -w 800 -t "Sample text"
@@ -59,6 +60,9 @@ const { positionals, values } = parseArgs({
     "text-file": {
       type: "string",
     },
+    bg: {
+      type: "string",
+    },
   },
 });
 
@@ -80,6 +84,8 @@ const customLineHeight =
   typeof values["line-height"] == "string"
     ? parseInt(values["line-height"], 10)
     : null;
+
+const background = typeof values.bg == "string" ? values.bg : "#ffffff";
 
 // Get text from command line or file
 let text =
@@ -295,7 +301,7 @@ const drawGlyphs = (
   const ctx = canvas.getContext("2d");
 
   // Set background
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, width, height);
 
   // Draw each glyph

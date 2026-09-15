@@ -255,11 +255,12 @@ Fonts are discovered by merging `resources/common/base/resource_map.json` and
 build does, so platform overrides are respected. Glyphs a font does not
 contain are drawn with that font's wildcard box. Useful flags: `--scale N`
 (default 1, pixel-exact; pass 2 for a magnified copy), `--max-width N`
-(default 1100; long text wraps), and
-The sheet is titled after the fonts' common name (pass `--title` to override),
-`--coverage` appends a line with every glyph the sample text missed, and
+(default 1100; long text wraps), `--bg <color>` (default `#ffffff`) and
 `--fallback <pbf|dir>` to fill glyphs a font is missing from another font (a
 directory is matched by pixel height).
+
+The sheet is titled after the fonts' common name (pass `--title` to override),
+and `--coverage` appends a line with every glyph the sample text missed.
 
 ## Licenses
 
