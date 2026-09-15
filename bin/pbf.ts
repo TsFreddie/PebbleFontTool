@@ -40,6 +40,9 @@ const { positionals, values } = parseArgs({
     "bold-width": {
       type: "string",
     },
+    "bold-height": {
+      type: "string",
+    },
   },
 });
 
@@ -215,6 +218,11 @@ if (operation === "build" || operation === "buildbold") {
   const growth = bold
     ? Math.max(1, boldTarget ? boldTarget - medianStem : 1)
     : 0;
+  // Growing upwards too thickens the horizontal strokes, which a bold has as
+  // well; it needs no extra buffer row because the buffer already starts at the
+  // top of the line box, and the ink bbox (and so the glyph's `top`) follows.
+  const growthUp =
+    bold && values["bold-height"] ? Number(values["bold-height"]) : 0;
 
   for (const glyphFile of glyphs.filter((f) => f.endsWith(".txt"))) {
     const codepoint = parseInt(glyphFile.split(".")[0]!);
@@ -306,6 +314,20 @@ if (operation === "build" || operation === "buildbold") {
       );
 
       for (let step = 1; step <= growth; step++) {
+        for (let up = 0; up <= growthUp; up++) {
+          copyShape(
+            glyphShape.shape.data,
+            glyphShape.shape.width,
+            glyphShape.shape.height,
+            buffer,
+            bufferWidth,
+            bufferHeight,
+            glyphShape.left + glyphShape.shape.left + step,
+            glyphShape.top + glyphShape.shape.top - up,
+          );
+        }
+      }
+      for (let up = 1; up <= growthUp; up++) {
         copyShape(
           glyphShape.shape.data,
           glyphShape.shape.width,
@@ -313,8 +335,8 @@ if (operation === "build" || operation === "buildbold") {
           buffer,
           bufferWidth,
           bufferHeight,
-          glyphShape.left + glyphShape.shape.left + step,
-          glyphShape.top + glyphShape.shape.top,
+          glyphShape.left + glyphShape.shape.left,
+          glyphShape.top + glyphShape.shape.top - up,
         );
       }
     }
