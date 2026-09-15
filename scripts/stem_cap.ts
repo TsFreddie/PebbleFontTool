@@ -74,12 +74,12 @@ export function bitmapToShape(bitmap: Bitmap): string {
   return rows.join("\n");
 }
 
-interface Runs {
+export interface Runs {
   start: Int32Array;
   length: Int32Array;
 }
 
-interface BitmapRuns {
+export interface BitmapRuns {
   along: Runs;
   perp: Runs;
 }
@@ -91,7 +91,7 @@ const index = (
   width: number,
 ): number => (axis === 0 ? line * width + offset : offset * width + line);
 
-function runLengths(bitmap: Bitmap, axis: 0 | 1): BitmapRuns {
+export function runLengths(bitmap: Bitmap, axis: 0 | 1): BitmapRuns {
   const { ink, width, height } = bitmap;
   const size = width * height;
   const alongStart = new Int32Array(size);

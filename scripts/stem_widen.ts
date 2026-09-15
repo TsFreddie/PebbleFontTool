@@ -67,47 +67,6 @@ interface Stem {
 const at = (axis: 0 | 1, line: number, offset: number, width: number) =>
   axis === 0 ? line * width + offset : offset * width + line;
 
-/**
- * Ink pixels within `reach` 8-connected steps of the stem's cross sections: the
- * ink that belongs to the same little cluster as the stroke. A fill may close
- * the white between the stem and such ink (the dot of a radical touching its
- * first bar) even though it leaves no white, because the design has them joined.
- */
-function attachedInk(bitmap: Bitmap, axis: 0 | 1, stem: Stem[], reach = 3) {
-  const { ink, width, height } = bitmap;
-  const seen = new Uint8Array(width * height);
-  const queue: number[] = [];
-  for (const s of stem) {
-    const p = at(axis, s.line, s.offset, width);
-    if (ink[p] && !seen[p] && !queue.includes(p)) {
-      seen[p] = 1;
-      queue.push(p);
-    }
-  }
-  for (let head = 0, depth = 1; head < queue.length; depth += 1) {
-    const end = queue.length;
-    if (depth > reach) break;
-    for (; head < end; head++) {
-      const p = queue[head]!;
-      const x = p % width;
-      const y = (p - x) / width;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-          const q = ny * width + nx;
-          if (ink[q] && !seen[q]) {
-            seen[q] = 1;
-            queue.push(q);
-          }
-        }
-      }
-    }
-  }
-  return seen;
-}
-
 /** consecutive background pixels from `p` towards `step` (out of bounds = ink) */
 function gap(
   bitmap: Bitmap,
@@ -115,32 +74,19 @@ function gap(
   line: number,
   offset: number,
   step: number,
+  extra?: Uint8Array,
 ) {
   const { ink, width } = bitmap;
   const along = axis === 0 ? width : bitmap.height;
   let count = 0;
   for (let t = offset + step; t >= 0 && t < along; t += step) {
-    if (ink[at(axis, line, t, width)]) break;
+    const p = at(axis, line, t, width);
+    // pixels an earlier stem already filled count as ink, so two stems facing
+    // each other across a gap cannot both eat into it
+    if (ink[p] || extra?.[p]) break;
     count += 1;
   }
   return count;
-}
-
-/** where the run towards `step` first hits ink, or -1 when it runs out */
-function firstInk(
-  bitmap: Bitmap,
-  axis: 0 | 1,
-  line: number,
-  offset: number,
-  step: number,
-) {
-  const { ink, width } = bitmap;
-  const along = axis === 0 ? width : bitmap.height;
-  for (let t = offset + step; t >= 0 && t < along; t += step) {
-    const p = at(axis, line, t, width);
-    if (ink[p]) return p;
-  }
-  return -1;
 }
 
 export function widenStems(
@@ -215,27 +161,17 @@ export function widenStems(
         const targets = fillable(step);
         if (!targets.length) return -1;
         return Math.min(
-          ...targets.map((s) => gap(source, axis, s.line, s.offset, step)),
+          ...targets.map((s) =>
+            gap(source, axis, s.line, s.offset, step, grown),
+          ),
         );
       };
-      const attached = attachedInk(source, axis, usable);
+      // vertical stems keep 2px of white, horizontal ones 1px
       const left = lowestGap(-1);
       const right = lowestGap(1);
-      // vertical stems keep 2px of white, horizontal ones 1px - unless the ink
-      // in the way is attached to the stroke, which means the pieces are one
-      // stroke in the design and closing the gap only joins what is joined
-      const joining = (step: number) =>
-        fillable(step).some((s) => {
-          const p = firstInk(source, axis, s.line, s.offset, step);
-          return (
-            p >= 0 &&
-            attached[p] === 1 &&
-            gap(source, axis, s.line, s.offset, step) === 1
-          );
-        });
       const keep = axis === 0 ? 2 : 1;
-      const legalLeft = left >= keep + 1 || (left >= 1 && joining(-1));
-      const legalRight = right >= keep + 1 || (right >= 1 && joining(1));
+      const legalLeft = left >= keep + 1;
+      const legalRight = right >= keep + 1;
       if (!legalLeft && !legalRight) {
         skipped += 1;
         continue;
@@ -258,35 +194,6 @@ export function widenStems(
         skipped += 1;
         continue;
       }
-      // A fill that would trap a white pinhole against a neighbouring stroke
-      // (the last bar of a radical meeting its dot, say) absorbs the pinhole
-      // instead of backing off: in the design those pieces are one stroke, and a
-      // 1px speck of white inside the ink reads as noise.
-      const filled = Uint8Array.from(source.ink, (v, p) =>
-        v || grown[p] || trial[p] ? 1 : 0,
-      );
-      let absorbed = true;
-      while (absorbed) {
-        absorbed = false;
-        for (let p = 0; p < filled.length; p++) {
-          if (filled[p]) continue;
-          const x = p % width;
-          const y = (p - x) / width;
-          const enclosed = (a: Uint8Array) =>
-            (x === 0 || a[p - 1] === 1) &&
-            (x === width - 1 || a[p + 1] === 1) &&
-            (y === 0 || a[p - width] === 1) &&
-            (y === height - 1 || a[p + width] === 1);
-          // a speck the source already enclosed is part of the design: leave it
-          if (enclosed(filled) && !enclosed(source.ink)) {
-            trial[p] = 1;
-            filled[p] = 1;
-            absorbed = true;
-          }
-        }
-      }
-      // Widening is allowed to join pieces of one stroke (the reference does),
-      // so only new holes would matter - and the loop above rules those out.
       for (let p = 0; p < trial.length; p++) if (trial[p]) grown[p] = 1;
       widened += 1;
     }
