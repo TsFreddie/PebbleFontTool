@@ -1,4 +1,5 @@
 import { FontExtractor } from "./extractor";
+import { capShape } from "./stem_cap";
 import fs from "fs";
 import path from "path";
 import { parseArgs } from "util";
@@ -42,7 +43,48 @@ const autoJiggle: false | [number, number] = definition.autoJiggle ?? false;
 const strokeWidth = definition.strokeWidth ?? 0;
 const thinWidth = definition.thinWidth;
 const supersample = definition.supersample ?? 8;
+// take one layer off 3px+ stems so a glyph has one stroke width
+const capStems = definition.capStems ?? false;
 const outputDir = definition.outputDir ?? `./fonts/${fontName}`;
+
+/**
+ * Run the stem cap pass over an extracted glyph and re-anchor it: the pass only
+ * removes ink, so when it empties the leading row or column of the bitmap the
+ * glyph has to move by that much to stay where it was.
+ */
+const capGlyph = (glyph: {
+  shape: string;
+  top: number;
+  left: number;
+  advance: number;
+}) => {
+  const rows = capShape(glyph.shape).shape.split("\n");
+  let first = 0;
+  while (first < rows.length && !rows[first]!.includes("#")) first++;
+  if (first >= rows.length) {
+    return glyph;
+  }
+  let last = rows.length - 1;
+  while (last > first && !rows[last]!.includes("#")) last--;
+  let minX = Infinity;
+  let maxX = -1;
+  for (let y = first; y <= last; y++) {
+    const row = rows[y]!;
+    const at = row.indexOf("#");
+    if (at < 0) continue;
+    minX = Math.min(minX, at);
+    maxX = Math.max(maxX, row.lastIndexOf("#"));
+  }
+  return {
+    ...glyph,
+    shape: rows
+      .slice(first, last + 1)
+      .map((row) => row.slice(minX, maxX + 1))
+      .join("\n"),
+    top: glyph.top + first,
+    left: glyph.left + minX,
+  };
+};
 
 const segmentor = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const cjk = Array.from(
@@ -97,6 +139,9 @@ for (const char of cjk) {
   }
 
   if (glyph) {
+    if (capStems) {
+      glyph = capGlyph(glyph);
+    }
     const top = glyph.shape ? topOffset + glyph.top : 0;
     const left = glyph.shape ? leftOffset + glyph.left : 0;
 
@@ -163,5 +208,6 @@ console.log(
   `Extracted and wrote ${written} glyphs to ${outputDir}` +
     (strokeWidth > 0
       ? ` with the stroke rasterizer (target ${strokeWidth}px)`
-      : ""),
+      : "") +
+    (capStems ? ", stems capped to 2px" : ""),
 );
