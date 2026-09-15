@@ -79,10 +79,12 @@ bun run ./PebbleFontTool/scripts/extract.ts build/fusion12.json
 
 Definitions support `fontFile`, `fontName`, `fontSize`, `topOffset`,
 `leftOffset`, `advanceOffset`, `renderWidth`, `renderHeight`, `wildcardWidth`,
-`wildcardHeight`, `ranges`, `autoJiggle`, `forceAutohint` and `capStems`.
-With `capStems` the extracted glyph loses one layer off its 3px (and 4px) stem
-cross sections, so it carries a single stroke width: the pass only ever removes
-ink, and leaves 1px and 2px strokes, joins and counters alone. Glyphs go to
+`wildcardHeight`, `ranges`, `autoJiggle`, `forceAutohint`, `capStems` and
+`widenStems`. With `capStems` the extracted glyph loses one layer off its 3px
+(and 4px) stem cross sections; with `widenStems`, applied after it, straight 1px
+stems get one pixel back, but only where the white space next to them stays at
+least 2px (verticals) or 1px (horizontals), the ink bounding box cannot grow and
+no counters close. Together they give a glyph a single stroke width. Glyphs go to
 `./fonts/<fontName>` relative to the current directory (or to `outputDir`), so
 run the scripts from the tumbled project root. Pass `--force` to overwrite
 existing glyphs; without it, existing files are kept.

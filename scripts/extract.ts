@@ -1,5 +1,6 @@
 import { FontExtractor } from "./extractor";
 import { capShape } from "./stem_cap";
+import { widenShape } from "./stem_widen";
 import fs from "fs";
 import path from "path";
 import { parseArgs } from "util";
@@ -43,8 +44,10 @@ const autoJiggle: false | [number, number] = definition.autoJiggle ?? false;
 const strokeWidth = definition.strokeWidth ?? 0;
 const thinWidth = definition.thinWidth;
 const supersample = definition.supersample ?? 8;
-// take one layer off 3px+ stems so a glyph has one stroke width
+// take one layer off 3px+ stems, and add one to 1px stems, so a glyph has one
+// stroke width instead of a mix of 1px, 2px and 3px
 const capStems = definition.capStems ?? false;
+const widenStems = definition.widenStems ?? false;
 const outputDir = definition.outputDir ?? `./fonts/${fontName}`;
 
 /**
@@ -142,6 +145,9 @@ for (const char of cjk) {
     if (capStems) {
       glyph = capGlyph(glyph);
     }
+    if (widenStems) {
+      glyph = { ...glyph, shape: widenShape(glyph.shape).shape };
+    }
     const top = glyph.shape ? topOffset + glyph.top : 0;
     const left = glyph.shape ? leftOffset + glyph.left : 0;
 
@@ -209,5 +215,6 @@ console.log(
     (strokeWidth > 0
       ? ` with the stroke rasterizer (target ${strokeWidth}px)`
       : "") +
-    (capStems ? ", stems capped to 2px" : ""),
+    (capStems ? ", stems capped to 2px" : "") +
+    (widenStems ? ", thin stems widened to 2px" : ""),
 );
