@@ -113,6 +113,20 @@ ignore the page set), and copies every shape referenced by the added glyphs
 so composed glyphs keep working. It warns when the two projects have
 different heights or when a glyph references a shape the source lacks.
 
+### Evening an existing pack
+
+`bin/stem.ts` runs the two stem passes (`capStems` + `widenStems`) over a
+shapes directory instead of extracting from a font, so a pack keeps its own
+glyphs - hand edits and all - and only has its stroke widths evened out:
+
+```bash
+bun run bin/stem.ts fonts/TUMBLED_28 --out /tmp/TUMBLED_28 --cap 2 --widen 2
+```
+
+A pack built this way matches its previous self except for the stems the
+passes touch, which is the point: re-extracting from the source font would
+discard every hand adjustment the pack carries.
+
 ## Language Packs (.pbl)
 
 PebbleOS ships custom extended fonts as a **language pack**: a regular
