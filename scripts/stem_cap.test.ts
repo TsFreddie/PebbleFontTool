@@ -190,3 +190,44 @@ test("every removal is on a stroke at least 3px thick", () => {
     }
   }
 });
+
+test("a stem whose edge carries on thinner keeps its layer", () => {
+  // 4px wide for four rows, 2px under it (right edge aligned): shaving the
+  // thick part alone leaves a jog, the way 份's 亻 stroke came out
+  const shape = [
+    " ###",
+    " ###",
+    " ###",
+    "####",
+    "####",
+    "####",
+    "####",
+    "  ##",
+    "  ##",
+    "  ##",
+  ].join("\n");
+  const { removed } = capShape(shape);
+  expect(removed).toBe(0);
+});
+
+test("a bar crossed by a stem keeps its layer", () => {
+  // the 3px bar is only shavable in pieces here: the columns the stem occupies
+  // would stay 3px, which is how 卅's bar came out ragged
+  const shape = [
+    "  ###  ",
+    "  ###  ",
+    "#######",
+    "#######",
+    "#######",
+    "  ###  ",
+    "  ###  ",
+  ].join("\n");
+  const { removed } = capShape(shape);
+  expect(removed).toBe(0);
+});
+
+test("a clean 3px stem still loses a layer", () => {
+  const shape = ["###", "###", "###", "###", "###"].join("\n");
+  const { removed } = capShape(shape);
+  expect(removed).toBe(5);
+});

@@ -7,8 +7,10 @@
  * those thick stems and leaves everything else alone:
  *
  *   1. scan every row and column for runs of `minLength`..`maxWidth` pixels
- *      whose perpendicular run is at least `minPerp` long: those are cross
- *      sections of straight stems;
+ *      whose perpendicular run is at least `minPerp` long and whose pixels all
+ *      share that one perpendicular run: those are cross sections of straight
+ *      stems. The shared-run test rejects the column of a stem that runs into
+ *      a 1px bar, where bar and stem together look like one thick stroke;
  *   2. chain cross sections that repeat with the *same* span for at least
  *      `minStem` consecutive lines. A diagonal drifts one pixel per line, so it
  *      is not a stem and stays untouched;
@@ -17,7 +19,10 @@
  *      pixel that is interior to a perpendicular run (inside a crossing
  *      stroke), that is not at the end of its own run, or where either axis is
  *      thinner than `minLength` - that is what keeps junctions, neighbouring
- *      2px stems, stroke ends and shallow diagonals intact;
+ *      2px stems, stroke ends and shallow diagonals intact. A stop caused by
+ *      ink whose own run is already thinner than `minLength` abandons the
+ *      group instead: the edge carries on thinner there, and shaving only the
+ *      thick part of it leaves a jog;
  *   4. commit a stem only if the glyph's 8-connected components *and* holes are
  *      unchanged, so no counter can close and no stroke can be cut.
  *
@@ -152,6 +157,40 @@ interface CrossSection {
   length: number;
 }
 
+/**
+ * Pixels reachable from the border without crossing ink, 4-connected. A
+ * non-ink pixel that is *not* in here is enclosed by ink: a counter.
+ */
+export function outsideMask(bitmap: Bitmap): Uint8Array {
+  const { ink, width, height } = bitmap;
+  const outside = new Uint8Array(width * height);
+  const queue: number[] = [];
+  const push = (p: number) => {
+    if (!ink[p] && !outside[p]) {
+      outside[p] = 1;
+      queue.push(p);
+    }
+  };
+  for (let x = 0; x < width; x++) {
+    push(x);
+    push((height - 1) * width + x);
+  }
+  for (let y = 0; y < height; y++) {
+    push(y * width);
+    push(y * width + width - 1);
+  }
+  while (queue.length) {
+    const q = queue.pop()!;
+    const x = q % width;
+    const y = (q - x) / width;
+    if (x > 0) push(q - 1);
+    if (x < width - 1) push(q + 1);
+    if (y > 0) push(q - width);
+    if (y < height - 1) push(q + width);
+  }
+  return outside;
+}
+
 /** (components, holes) of the ink. */
 export function topology(bitmap: Bitmap): [number, number] {
   const { ink, width, height } = bitmap;
@@ -181,31 +220,7 @@ export function topology(bitmap: Bitmap): [number, number] {
     }
   }
   // background: 4-connected from the border, whatever is left is a hole
-  const outside = new Uint8Array(width * height);
-  const queue: number[] = [];
-  const push = (p: number) => {
-    if (!ink[p] && !outside[p]) {
-      outside[p] = 1;
-      queue.push(p);
-    }
-  };
-  for (let x = 0; x < width; x++) {
-    push(x);
-    push((height - 1) * width + x);
-  }
-  for (let y = 0; y < height; y++) {
-    push(y * width);
-    push(y * width + width - 1);
-  }
-  while (queue.length) {
-    const q = queue.pop()!;
-    const x = q % width;
-    const y = (q - x) / width;
-    if (x > 0) push(q - 1);
-    if (x < width - 1) push(q + 1);
-    if (y > 0) push(q - width);
-    if (y < height - 1) push(q + width);
-  }
+  const outside = outsideMask(bitmap);
   let holes = 0;
   for (let p = 0; p < ink.length; p++) {
     if (ink[p] || outside[p]) continue;
@@ -311,6 +326,7 @@ export function capStems(
     // trailing edge of the cross section
     const edge = start + length - 1;
     const trial = new Uint8Array(width * height);
+    let aborted = false;
 
     // A pixel may only go if the cross section through it ends here and neither
     // axis through it is thinner than a stem. "Ends here" is what keeps the
@@ -329,15 +345,49 @@ export function capStems(
       return offset === alongStart || offset === alongStart + alongLength - 1;
     };
 
+    // Where the walk stopped: if the edge resumes on the far side of the ink
+    // that blocked it, the layer would only cover part of the stroke. 卅's 3px
+    // bar is crossed by four vertexes, so the pass would shave four segments
+    // and leave the columns between them - where the bar goes on - at 3px.
+    // A corner does not resume: past the box side there is no more bar.
+    const edgeResumes = (from: number, sign: number): boolean => {
+      for (let i = 0, line = from; i < maxWidth; i++, line += sign) {
+        if (line < 0 || line >= lineCount(axis)) return false;
+        const p = index(axis, line, edge, width);
+        if (!ink[p]) return false;
+        if (free(p)) return true;
+      }
+      return false;
+    };
+
     for (const sign of [-1, 1] as const) {
       let line = sign < 0 ? first - 1 : last + 1;
       while (line >= 0 && line < lineCount(axis)) {
         const p = index(axis, line, edge, width);
-        if (!free(p)) break;
+        if (!free(p)) {
+          // The walk stops either at a junction (the pixel is interior to a
+          // longer run: another stroke takes over, and the layer may end
+          // there) or because the edge continues into a *thinner* section -
+          // its own run is short, or the stroke it belongs to is. The second
+          // case has to abandon the group: shaving part of a bar or an edge
+          // that carries on leaves a notch, which is what turned 買's 罒 bar
+          // and 份's 亻 stroke ragged.
+          if (
+            ink[p] &&
+            (runs[axis]!.along.length[p]! < minLength ||
+              runs[axis]!.perp.length[p]! < minLength ||
+              edgeResumes(line + sign, sign))
+          ) {
+            aborted = true;
+          }
+          break;
+        }
         trial[p] = 1;
         line += sign;
       }
+      if (aborted) break;
     }
+    if (aborted) continue;
     for (let line = first; line <= last; line++) {
       const p = index(axis, line, edge, width);
       if (free(p)) trial[p] = 1;
