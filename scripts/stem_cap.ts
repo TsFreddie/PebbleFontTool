@@ -272,10 +272,19 @@ export function capStems(
   const lineCount = (axis: 0 | 1) => (axis === 0 ? height : width);
   const alongCount = (axis: 0 | 1) => (axis === 0 ? width : height);
 
-  // cross sections of straight stems, chained into stems
+  // Cross sections of straight stems, chained into stems. One line can hold
+  // several stems side by side (朝 has three through every row), so the chains
+  // are kept per span: a flat list would have the parallel stems interrupt one
+  // another and only the last one per line would ever reach minStem - which
+  // left 朝's left stem 2px at the top, 3px in the middle, 2px at the bottom.
   const groups: { axis: 0 | 1; sections: CrossSection[] }[] = [];
   for (const axis of [0, 1] as const) {
-    const sections: CrossSection[] = [];
+    const active = new Map<string, CrossSection[]>();
+    const flush = (key: string) => {
+      const chain = active.get(key)!;
+      if (chain.length >= minStem) groups.push({ axis, sections: chain });
+      active.delete(key);
+    };
     for (let line = 0; line < lineCount(axis); line++) {
       let offset = 0;
       while (offset < alongCount(axis)) {
@@ -288,29 +297,20 @@ export function capStems(
         const length = runs[axis]!.along.length[p]!;
         const perp = runs[axis]!.perp.length[p]!;
         if (length >= minLength && length <= maxWidth && perp >= minPerp) {
-          sections.push({ line, start, length });
+          const key = `${start}:${length}`;
+          const chain = active.get(key);
+          const last = chain?.[chain.length - 1];
+          if (chain && last && last.line === line - 1) {
+            chain.push({ line, start, length });
+          } else {
+            if (chain) flush(key);
+            active.set(key, [{ line, start, length }]);
+          }
         }
         offset = start + length;
       }
     }
-    let chain: CrossSection[] = [];
-    const flush = () => {
-      if (chain.length >= minStem) groups.push({ axis, sections: chain });
-      chain = [];
-    };
-    for (const section of sections) {
-      const previous = chain[chain.length - 1];
-      if (
-        previous &&
-        (section.line !== previous.line + 1 ||
-          section.start !== previous.start ||
-          section.length !== previous.length)
-      ) {
-        flush();
-      }
-      chain.push(section);
-    }
-    flush();
+    for (const key of [...active.keys()]) flush(key);
   }
 
   const blocked = new Uint8Array(width * height);

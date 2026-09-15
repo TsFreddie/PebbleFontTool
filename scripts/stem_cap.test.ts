@@ -238,6 +238,17 @@ test("a bar crossed by a stem is thinned on both sides of the crossing", () => {
   expect(rows[3]).toBe("#######");
 });
 
+test("parallel stems do not break each other's chains", () => {
+  // 朝 has three stems through every row. Chained off a flat cross-section
+  // list they interrupted one another and only the last per line survived,
+  // which left the same stem 2px at the top and 3px further down.
+  const shape = ["###  ###", "###  ###", "###  ###", "###  ###"].join("\n");
+  const { shape: capped, removed } = capShape(shape);
+  expect(removed).toBe(8);
+  // each stem loses its right column, so a gap grows to three spaces
+  for (const row of capped.split("\n")) expect(row).toBe("##   ##");
+});
+
 test("a clean 3px stem still loses a layer", () => {
   const shape = ["###", "###", "###", "###", "###"].join("\n");
   const { removed } = capShape(shape);
