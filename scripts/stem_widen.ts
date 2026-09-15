@@ -35,6 +35,8 @@ import {
 export type StemWidenSide = "uniform" | "tight" | "left" | "right";
 
 export interface StemWidenOptions {
+  /** Width to bring thin stems up to (default 2). */
+  target?: number;
   /** How far a stem must run for its cross section to count (default 4). */
   minPerp?: number;
   /** How many lines a stem must hold its position (default 2). */
@@ -93,6 +95,7 @@ export function widenStems(
   source: Bitmap,
   options: StemWidenOptions = {},
 ): StemWidenResult {
+  const target = options.target ?? 2;
   const minPerp = options.minPerp ?? 4;
   const minStem = options.minStem ?? 2;
   const side = options.side ?? "uniform";
@@ -112,7 +115,8 @@ export function widenStems(
       for (let offset = 0; offset < along; offset++) {
         const p = at(axis, line, offset, width);
         if (!source.ink[p]) continue;
-        if (axisRuns.along.length[p] !== 1) continue;
+        const crossWidth = axisRuns.along.length[p]!;
+        if (crossWidth < 1 || crossWidth >= target) continue;
         if (axisRuns.perp.length[p]! < minPerp) continue;
         candidates.push({ axis, line, offset });
       }
@@ -166,12 +170,22 @@ export function widenStems(
           ),
         );
       };
+      // how many pixels this stroke still needs to reach the target width
+      const grow = Math.max(
+        1,
+        target -
+          Math.min(
+            ...usable.map(
+              (s) => axisRuns.along.length[at(axis, s.line, s.offset, width)]!,
+            ),
+          ),
+      );
       // vertical stems keep 2px of white, horizontal ones 1px
       const left = lowestGap(-1);
       const right = lowestGap(1);
       const keep = axis === 0 ? 2 : 1;
-      const legalLeft = left >= keep + 1;
-      const legalRight = right >= keep + 1;
+      const legalLeft = left >= keep + grow;
+      const legalRight = right >= keep + grow;
       if (!legalLeft && !legalRight) {
         skipped += 1;
         continue;
@@ -188,7 +202,10 @@ export function widenStems(
       }
       const trial = new Uint8Array(width * height);
       for (const s of fillable(step)) {
-        trial[at(axis, s.line, s.offset + step, width)] = 1;
+        for (let k = 1; k <= grow; k++) {
+          const p = at(axis, s.line, s.offset + step * k, width);
+          if (p >= 0 && p < trial.length && !source.ink[p]) trial[p] = 1;
+        }
       }
       if (!trial.some((v) => v)) {
         skipped += 1;

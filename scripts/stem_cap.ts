@@ -27,7 +27,9 @@
  */
 
 export interface StemCapOptions {
-  /** Narrowest cross section that is a stem (default 3). */
+  /** Width to leave stems at (default 2): 3px+ stems lose a layer. */
+  target?: number;
+  /** Narrowest cross section that is a stem (default target + 1). */
   minLength?: number;
   /** Widest cross section this pass will cap (default 4). */
   maxWidth?: number;
@@ -243,8 +245,9 @@ export function capStems(
   source: Bitmap,
   options: StemCapOptions = {},
 ): { bitmap: Bitmap; removed: number } {
-  const minLength = options.minLength ?? 3;
-  const maxWidth = options.maxWidth ?? 4;
+  const target = options.target ?? 2;
+  const minLength = options.minLength ?? target + 1;
+  const maxWidth = options.maxWidth ?? target + 3;
   const minPerp = options.minPerp ?? 4;
   const minStem = options.minStem ?? 2;
   const { width, height } = source;

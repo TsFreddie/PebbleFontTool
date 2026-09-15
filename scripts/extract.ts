@@ -81,6 +81,10 @@ const autoJiggle: false | [number, number] = definition.autoJiggle ?? false;
 // stroke width instead of a mix of 1px, 2px and 3px
 const capStems = definition.capStems ?? false;
 const widenStems = definition.widenStems ?? false;
+// true -> 2px (the regular weight); a number sets the target width, which the
+// bold pack needs (a 3px source plus the +1 auto bold lands on 4px)
+const capTarget = typeof capStems === "number" ? capStems : 2;
+const widenTarget = typeof widenStems === "number" ? widenStems : 2;
 const outputDir = definition.outputDir ?? `./fonts/${fontName}`;
 
 // the custom stroke rasterizer is gone; stemCap/stemWiden cover its job
@@ -104,7 +108,7 @@ const capGlyph = (glyph: {
   left: number;
   advance: number;
 }) => {
-  const rows = capShape(glyph.shape).shape.split("\n");
+  const rows = capShape(glyph.shape, { target: capTarget }).shape.split("\n");
   let first = 0;
   while (first < rows.length && !rows[first]!.includes("#")) first++;
   if (first >= rows.length) {
@@ -183,7 +187,10 @@ for (const char of cjk) {
       glyph = capGlyph(glyph);
     }
     if (widenStems) {
-      glyph = { ...glyph, shape: widenShape(glyph.shape).shape };
+      glyph = {
+        ...glyph,
+        shape: widenShape(glyph.shape, { target: widenTarget }).shape,
+      };
     }
     const top = glyph.shape ? topOffset + glyph.top : 0;
     const left = glyph.shape ? leftOffset + glyph.left : 0;

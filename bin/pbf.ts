@@ -37,6 +37,9 @@ const { positionals, values } = parseArgs({
       type: "string",
       short: "o",
     },
+    "bold-width": {
+      type: "string",
+    },
   },
 });
 
@@ -173,6 +176,46 @@ if (operation === "build" || operation === "buildbold") {
 
   const bold = operation === "buildbold";
 
+  /**
+   * Bold is synthesised by copying each shape shifted right, so a stem grows by
+   * one pixel per copy. With a 2px regular (what the stem passes produce) a
+   * single copy lands on 3px, which reads a pixel lighter than the firmware's
+   * real bold Latin (~4px), so the width to reach is configurable and the
+   * number of copies follows from the font's own stem width.
+   */
+  const medianStem = (() => {
+    const widths: number[] = [];
+    for (const shape of Object.values(shapes)) {
+      const { data, width: w, height: h } = shape;
+      for (let y = 0; y < h; y++) {
+        let x = 0;
+        while (x < w) {
+          if (!data[y * w + x]) {
+            x += 1;
+            continue;
+          }
+          let x2 = x;
+          while (x2 < w && data[y * w + x2]) x2 += 1;
+          const run = x2 - x;
+          const cx = x + (run >> 1);
+          let y2 = y;
+          while (y2 < h && data[y2 * w + cx]) y2 += 1;
+          let y1 = y;
+          while (y1 >= 0 && data[y1 * w + cx]) y1 -= 1;
+          if (run <= 6 && y2 - y1 - 1 >= 4) widths.push(run);
+          x = x2;
+        }
+      }
+    }
+    if (!widths.length) return 2;
+    widths.sort((a, b) => a - b);
+    return widths[widths.length >> 1]!;
+  })();
+  const boldTarget = values["bold-width"] ? Number(values["bold-width"]) : null;
+  const growth = bold
+    ? Math.max(1, boldTarget ? boldTarget - medianStem : 1)
+    : 0;
+
   for (const glyphFile of glyphs.filter((f) => f.endsWith(".txt"))) {
     const codepoint = parseInt(glyphFile.split(".")[0]!);
     if (isNaN(codepoint)) {
@@ -196,7 +239,7 @@ if (operation === "build" || operation === "buildbold") {
 
     if (bold) {
       // increase advance for bold font
-      advance += 1;
+      advance += growth;
     }
 
     const shapeDefs = lines.slice(1);
@@ -246,7 +289,7 @@ if (operation === "build" || operation === "buildbold") {
     }
 
     if (bold) {
-      bufferWidth += 1;
+      bufferWidth += growth;
     }
 
     const buffer = new Uint8Array(bufferWidth * bufferHeight);
@@ -262,7 +305,7 @@ if (operation === "build" || operation === "buildbold") {
         glyphShape.top + glyphShape.shape.top,
       );
 
-      if (bold) {
+      for (let step = 1; step <= growth; step++) {
         copyShape(
           glyphShape.shape.data,
           glyphShape.shape.width,
@@ -270,7 +313,7 @@ if (operation === "build" || operation === "buildbold") {
           buffer,
           bufferWidth,
           bufferHeight,
-          glyphShape.left + glyphShape.shape.left + 1,
+          glyphShape.left + glyphShape.shape.left + step,
           glyphShape.top + glyphShape.shape.top,
         );
       }
