@@ -30,9 +30,46 @@ const leftOffset = definition.leftOffset ?? 0;
 const advanceOffset = definition.advanceOffset ?? 0;
 const fontName = definition.fontName ?? "unifont";
 const fontSize = definition.fontSize ?? 24;
-const fontFile =
+const sourceFont =
   definition.fontFile ??
   path.resolve(__dirname, "../data/fonts/unifont/unifont-17.0.03.otf");
+// Variable fonts: `variation` pins the axes (e.g. { "wght": 400 }) and the
+// extractor runs on a static instance. Instancing a CJK font takes a while
+// (fontTools rewrites every glyph), so the instance is cached next to the
+// source and reused; delete it to force a rebuild.
+const variation: Record<string, number> | null = definition.variation ?? null;
+
+const instanceFont = (file: string, axes: Record<string, number>) => {
+  const key = Object.entries(axes)
+    .map(([axis, value]) => `${axis}${value}`)
+    .join("-");
+  const target = `${file.replace(/\.(otf|ttf|ttc)$/i, "")}.${key}.otf`;
+  if (
+    fs.existsSync(target) &&
+    fs.statSync(target).mtimeMs > fs.statSync(file).mtimeMs
+  ) {
+    return target;
+  }
+  const args = [
+    "-m",
+    "fontTools.varLib.instancer",
+    "-q",
+    "-o",
+    target,
+    file,
+    ...Object.entries(axes).map(([axis, value]) => `${axis}=${value}`),
+  ];
+  const result = Bun.spawnSync(["python3", ...args], { stderr: "pipe" });
+  if (result.exitCode !== 0 || !fs.existsSync(target)) {
+    throw new Error(
+      `instancing ${path.basename(file)} at ${key} failed - is fontTools installed ` +
+        `(pip install fonttools)?\n${result.stderr.toString()}`,
+    );
+  }
+  return target;
+};
+
+const fontFile = variation ? instanceFont(sourceFont, variation) : sourceFont;
 const renderWidth = definition.renderWidth ?? 16;
 const renderHeight = definition.renderHeight ?? 16;
 const wildcardHeight = definition.wildcardHeight ?? 16;
@@ -40,15 +77,21 @@ const wildcardWidth = definition.wildcardWidth ?? 7;
 const forceAutohint = definition.forceAutohint ?? false;
 const ranges: [number, number][] = definition.ranges ?? [[-Infinity, Infinity]];
 const autoJiggle: false | [number, number] = definition.autoJiggle ?? false;
-// 0 disables the custom rasterizer and uses the stock FreeType pipeline
-const strokeWidth = definition.strokeWidth ?? 0;
-const thinWidth = definition.thinWidth;
-const supersample = definition.supersample ?? 8;
 // take one layer off 3px+ stems, and add one to 1px stems, so a glyph has one
 // stroke width instead of a mix of 1px, 2px and 3px
 const capStems = definition.capStems ?? false;
 const widenStems = definition.widenStems ?? false;
 const outputDir = definition.outputDir ?? `./fonts/${fontName}`;
+
+// the custom stroke rasterizer is gone; stemCap/stemWiden cover its job
+for (const gone of ["strokeWidth", "thinWidth", "supersample"]) {
+  if (definition[gone] !== undefined && definition[gone] !== 0) {
+    console.warn(
+      `WARNING: "${gone}" is no longer supported and will be ignored ` +
+        `(use capStems/widenStems instead)`,
+    );
+  }
+}
 
 /**
  * Run the stem cap pass over an extracted glyph and re-anchor it: the pass only
@@ -117,13 +160,7 @@ for (const char of cjk) {
         advance: number;
       } = false;
 
-  if (strokeWidth > 0) {
-    glyph = extractor.convertStroked(codepoint, renderWidth, renderHeight, {
-      strokeWidth,
-      thinWidth,
-      supersample,
-    });
-  } else if (typeof autoJiggle === "object") {
+  if (typeof autoJiggle === "object") {
     glyph = extractor.autoJiggle(
       codepoint,
       autoJiggle[0],
@@ -212,8 +249,8 @@ if (!fs.existsSync(`${outputDir}/glyphs/9647.txt`)) {
 
 console.log(
   `Extracted and wrote ${written} glyphs to ${outputDir}` +
-    (strokeWidth > 0
-      ? ` with the stroke rasterizer (target ${strokeWidth}px)`
+    (variation
+      ? ` from ${path.basename(sourceFont)} at ${JSON.stringify(variation)}`
       : "") +
     (capStems ? ", stems capped to 2px" : "") +
     (widenStems ? ", thin stems widened to 2px" : ""),

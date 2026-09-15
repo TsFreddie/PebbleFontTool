@@ -1,10 +1,5 @@
 // Script to extract glyphs from unifont
 import freetype from "freetype2";
-import {
-  rasterizeStroke,
-  type StrokeRasterOptions,
-  type StrokeRasterResult,
-} from "./stroke_rasterizer";
 
 const PREFERD_PATTERNS = [
   `
@@ -232,25 +227,6 @@ export class FontExtractor {
     }
 
     return bestShape;
-  }
-
-  /**
-   * Custom rasterizer that normalizes every stroke to a consistent width.
-   * See scripts/stroke_rasterizer.ts for the details.
-   */
-  convertStroked(
-    codePoint: number,
-    renderWidth: number,
-    renderHeight: number,
-    options?: StrokeRasterOptions,
-  ): StrokeRasterResult | false {
-    return rasterizeStroke(
-      this.font,
-      codePoint,
-      renderWidth,
-      renderHeight,
-      options,
-    );
   }
 
   convert(
