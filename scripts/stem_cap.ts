@@ -345,38 +345,23 @@ export function capStems(
       return offset === alongStart || offset === alongStart + alongLength - 1;
     };
 
-    // Where the walk stopped: if the edge resumes on the far side of the ink
-    // that blocked it, the layer would only cover part of the stroke. 卅's 3px
-    // bar is crossed by four vertexes, so the pass would shave four segments
-    // and leave the columns between them - where the bar goes on - at 3px.
-    // A corner does not resume: past the box side there is no more bar.
-    const edgeResumes = (from: number, sign: number): boolean => {
-      for (let i = 0, line = from; i < maxWidth; i++, line += sign) {
-        if (line < 0 || line >= lineCount(axis)) return false;
-        const p = index(axis, line, edge, width);
-        if (!ink[p]) return false;
-        if (free(p)) return true;
-      }
-      return false;
-    };
-
     for (const sign of [-1, 1] as const) {
       let line = sign < 0 ? first - 1 : last + 1;
       while (line >= 0 && line < lineCount(axis)) {
         const p = index(axis, line, edge, width);
         if (!free(p)) {
           // The walk stops either at a junction (the pixel is interior to a
-          // longer run: another stroke takes over, and the layer may end
-          // there) or because the edge continues into a *thinner* section -
-          // its own run is short, or the stroke it belongs to is. The second
-          // case has to abandon the group: shaving part of a bar or an edge
-          // that carries on leaves a notch, which is what turned 買's 罒 bar
-          // and 份's 亻 stroke ragged.
+          // longer run: a crossing stroke takes over, and the layer ends
+          // there - that is how 茶's 艹 stroke thins on both sides of a bar,
+          // and 早's 日 column through its bars) or because the edge carries
+          // on into a *thinner* section - its own run is short, or the stroke
+          // it belongs to is. The second case has to abandon the group:
+          // shaving part of an edge that carries on leaves a notch, which is
+          // what turned 買's 罒 bar and 份's 亻 stroke ragged.
           if (
             ink[p] &&
             (runs[axis]!.along.length[p]! < minLength ||
-              runs[axis]!.perp.length[p]! < minLength ||
-              edgeResumes(line + sign, sign))
+              runs[axis]!.perp.length[p]! < minLength)
           ) {
             aborted = true;
           }

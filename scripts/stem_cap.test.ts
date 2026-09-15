@@ -210,9 +210,10 @@ test("a stem whose edge carries on thinner keeps its layer", () => {
   expect(removed).toBe(0);
 });
 
-test("a bar crossed by a stem keeps its layer", () => {
-  // the 3px bar is only shavable in pieces here: the columns the stem occupies
-  // would stay 3px, which is how 卅's bar came out ragged
+test("a bar crossed by a stem is thinned on both sides of the crossing", () => {
+  // the layer comes off wherever the edge is free: the stem thins above and
+  // below the bar, the bar thins outside the stem - but never the crossing
+  // itself (茶's 艹 stroke over its bar, 早's 日 column through its bars)
   const shape = [
     "  ###  ",
     "  ###  ",
@@ -222,8 +223,19 @@ test("a bar crossed by a stem keeps its layer", () => {
     "  ###  ",
     "  ###  ",
   ].join("\n");
-  const { removed } = capShape(shape);
-  expect(removed).toBe(0);
+  const { shape: capped, removed } = capShape(shape);
+  expect(removed).toBe(8);
+  const rows = capped.split("\n");
+  // the stem above and below the bar loses its right column
+  expect(rows[0]).toBe("  ##");
+  expect(rows[1]).toBe("  ##");
+  expect(rows[5]).toBe("  ##");
+  expect(rows[6]).toBe("  ##");
+  // the bar loses its bottom row outside the stem, so it is 2px there
+  expect(rows[4]).toBe("  ###");
+  // and the crossing keeps every pixel
+  expect(rows[2]).toBe("#######");
+  expect(rows[3]).toBe("#######");
 });
 
 test("a clean 3px stem still loses a layer", () => {
